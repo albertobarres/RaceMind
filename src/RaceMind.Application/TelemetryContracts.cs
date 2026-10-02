@@ -21,6 +21,7 @@ public interface IF1DataProvider
     Task<IReadOnlyList<SessionSummary>> GetSessionsAsync(CancellationToken cancellationToken);
     Task<SessionDetails?> GetSessionAsync(string grandPrix, string sessionName, CancellationToken cancellationToken);
     Task<IReadOnlyList<CornerSummary>?> GetCornersAsync(string grandPrix, string sessionName, CancellationToken cancellationToken);
+    Task<IReadOnlyList<DriverSummary>?> GetDriversAsync(string grandPrix, string sessionName, CancellationToken cancellationToken);
     Task<IReadOnlyList<LapSummary>?> GetLapsAsync(string grandPrix, string sessionName, string driverCode, CancellationToken cancellationToken);
     Task<LapTelemetry?> GetLapTelemetryAsync(string grandPrix, string sessionName, string driverCode, int lapNumber, CancellationToken cancellationToken);
 }

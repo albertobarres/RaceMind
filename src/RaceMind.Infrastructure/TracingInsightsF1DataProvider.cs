@@ -70,6 +70,19 @@ public sealed class TracingInsightsF1DataProvider(string dataRoot) : IF1DataProv
         return Task.FromResult<IReadOnlyList<CornerSummary>?>(result);
     }
 
+    public Task<IReadOnlyList<DriverSummary>?> GetDriversAsync(string grandPrix, string sessionName, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var location = FindSession(grandPrix, sessionName);
+        if (location is null)
+        {
+            return Task.FromResult<IReadOnlyList<DriverSummary>?>(null);
+        }
+
+        var drivers = ReadSession(location)?.Drivers ?? Array.Empty<DriverSummary>();
+        return Task.FromResult<IReadOnlyList<DriverSummary>?>(drivers);
+    }
+
     public Task<IReadOnlyList<LapSummary>?> GetLapsAsync(string grandPrix, string sessionName, string driverCode, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

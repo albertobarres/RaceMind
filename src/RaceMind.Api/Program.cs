@@ -43,6 +43,13 @@ api.MapGet("/sessions/{grandPrix}/{sessionName}/corners", async (string grandPri
     })
     .WithName("GetSessionCorners");
 
+api.MapGet("/sessions/{grandPrix}/{sessionName}/drivers", async (string grandPrix, string sessionName, IF1DataProvider provider, CancellationToken cancellationToken) =>
+    {
+        var drivers = await provider.GetDriversAsync(grandPrix, sessionName, cancellationToken);
+        return drivers is null ? Results.NotFound() : Results.Ok(drivers);
+    })
+    .WithName("GetSessionDrivers");
+
 api.MapGet("/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps", async (string grandPrix, string sessionName, string driverCode, IF1DataProvider provider, CancellationToken cancellationToken) =>
     {
         var laps = await provider.GetLapsAsync(grandPrix, sessionName, driverCode, cancellationToken);
