@@ -30,6 +30,7 @@ __pycache__/
 venv/
 .pytest_cache/
 .ipynb_checkpoints/
+*.tsbuildinfo
 
 # Frontend
 node_modules/

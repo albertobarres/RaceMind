@@ -82,7 +82,7 @@ export function SeriesChart({ title, unit, comparison, series, format, range }: 
   );
 }
 
-export function TrackMap({ corners, comparison }: { corners: CornerSummary[]; comparison: LapComparison }) {
+export function TrackMap({ corners }: { corners: CornerSummary[] }) {
   const dimensions = useMemo(() => {
     if (corners.length < 2) return null;
     const xs = corners.map((corner) => corner.x);

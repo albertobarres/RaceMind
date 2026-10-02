@@ -260,7 +260,7 @@ function App() {
               <div className="analysis-grid">
                 <section className="track-card">
                   <div className="card-title"><div><h3>Circuit overview</h3><span>Corner markers · session geometry</span></div><span className="corner-count">{corners.length} TURNS</span></div>
-                  {comparison ? <TrackMap corners={corners} comparison={comparison} /> : <div className="chart-placeholder"><span className="spinner" />Loading telemetry...</div>}
+                  {comparison ? <TrackMap corners={corners} /> : <div className="chart-placeholder"><span className="spinner" />Loading telemetry...</div>}
                   <div className="track-legend"><span><i className="track-dot" /> CORNER</span><span><i className="track-line" /> TRACK LAYOUT</span><span className="track-legend-note">Schematic · not to scale</span></div>
                 </section>
                 <section className="insight-card">
