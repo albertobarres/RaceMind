@@ -14,7 +14,7 @@ Los cálculos y hallazgos deben ser reproducibles. La IA generativa, si se incor
 
 ## Estado actual
 
-La base inicial del backend ya está creada: API ASP.NET Core en .NET 10, dominio, aplicación, adaptador de datos TracingInsights y una comparación de vueltas alineada por distancia relativa. F1/ALO queda como estudio previo y Barcelona Race como sesión de arranque. El caso definitivo de Machine Learning, el proveedor LLM y la persistencia física siguen pendientes; el frontend todavía está planificado, no implementado.
+La base inicial está creada: API ASP.NET Core en .NET 10 y dashboard React/TypeScript, con exploración de sesiones y comparación de vueltas alineada por distancia relativa. F1/ALO queda como estudio previo y Barcelona Race como sesión de arranque. El caso definitivo de Machine Learning, el proveedor LLM y la persistencia física siguen pendientes.
 
 ## Estructura
 
@@ -43,7 +43,7 @@ Los ficheros completos de telemetría no se versionan en este repositorio. Consu
 - Backend: C#, .NET y ASP.NET Core.
 - Persistencia candidata: PostgreSQL y Entity Framework Core.
 - Análisis y ML: por decidir tras el perfilado; Python es una opción para experimentación.
-- UI: React/TypeScript o Blazor, pendiente de decisión.
+- UI: React + TypeScript (dashboard inicial en `web/`; Blazor queda como alternativa si el alcance cambia).
 - Infraestructura: Git, GitHub y Docker.
 
 ## Ejecutar la API
@@ -62,6 +62,18 @@ dotnet run --project src/RaceMind.Api --urls http://localhost:5080
 ```
 
 La API no importa ni copia los 10 GB al repositorio: lee únicamente metadatos del conjunto y abre la vuelta solicitada bajo demanda. Endpoints y guía de pantallas: [`docs/api-and-frontend.md`](docs/api-and-frontend.md).
+
+## Frontend
+
+Requiere Node.js LTS y npm. En una segunda terminal, desde la raíz del repositorio:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Vite sirve el dashboard en `http://localhost:5173` y consume la API en `http://localhost:5080/api`. Se puede cambiar la URL creando `web/.env.local` a partir de `.env.example`.
 
 Pruebas:
 

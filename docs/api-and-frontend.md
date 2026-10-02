@@ -103,9 +103,20 @@ La respuesta de comparación es una serie de puntos uniformes en `relativeDistan
 
 Convención del delta: **comparada menos referencia**. Delta positivo significa que la vuelta comparada va por detrás (más tiempo) o muestra un valor de canal mayor; delta negativo, por delante/menor. Las diferencias de sectores son `null` si uno de los valores de origen falta.
 
-## CORS y ejecución local
+## Ejecución local, CORS y frontend
 
-El backend permite por defecto el origen `http://localhost:5173` (Vite). Puede cambiarse mediante `Frontend:Origin`. El frontend está considerado en el diseño, pero aún no está creado ni se han cerrado React/TypeScript frente a Blazor.
+El backend permite por defecto el origen `http://localhost:5173` (Vite). Puede cambiarse mediante `Frontend:Origin`.
+
+1. Iniciar el backend desde la raíz del repositorio: `dotnet run --project src/RaceMind.Api --urls http://localhost:5080`.
+2. Instalar Node.js LTS si no está instalado.
+3. En otra terminal ejecutar `cd web`, `npm install` y `npm run dev`.
+4. Abrir `http://localhost:5173`.
+
+La UI inicial usa React + TypeScript y gráficos SVG ligeros, sin añadir una dependencia de charting. El selector de evento filtra todos los Grandes Premios disponibles; al abrir uno aparecen sus pilotos, contexto y vueltas. El comparador obtiene del backend 201 puntos interpolados. Se puede apuntar a otra URL de API con `web/.env.local`:
+
+```text
+VITE_API_BASE_URL=http://localhost:5080/api
+```
 
 ## Limitaciones conocidas de esta primera base
 

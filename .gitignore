@@ -35,6 +35,8 @@ venv/
 node_modules/
 dist/
 build/
+/web/.env
+/web/.env.local
 
 # IDE / OS
 .vs/
