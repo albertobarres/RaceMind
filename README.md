@@ -14,7 +14,7 @@ Los cálculos y hallazgos deben ser reproducibles. La IA generativa, si se incor
 
 ## Estado actual
 
-Fase de estudio de datos y modelado conceptual. Aún no se han fijado el caso definitivo de Machine Learning, el proveedor LLM, el frontend ni la persistencia. Las propuestas iniciales están en [`docs/architecture/data-model.md`](docs/architecture/data-model.md) y se revisarán al implementar los adaptadores y perfilar los datos.
+La base inicial del backend ya está creada: API ASP.NET Core en .NET 10, dominio, aplicación, adaptador de datos TracingInsights y una comparación de vueltas alineada por distancia relativa. F1/ALO queda como estudio previo y Barcelona Race como sesión de arranque. El caso definitivo de Machine Learning, el proveedor LLM y la persistencia física siguen pendientes; el frontend todavía está planificado, no implementado.
 
 ## Estructura
 
@@ -23,8 +23,13 @@ docs/
   data/                 Inventario y observaciones de datasets
   architecture/         Modelo de datos y decisiones de diseño
   decisions/            Decisiones arquitectónicas (ADR)
-src/                    Código de la solución (se añadirá tras cerrar el modelo inicial)
-tests/                  Pruebas de la solución
+src/
+  RaceMind.Api/         API REST y composición de servicios
+  RaceMind.Application/ Casos de uso y contratos
+  RaceMind.Domain/      Modelo de telemetría y resultados analíticos
+  RaceMind.Infrastructure/ Adaptador JSON de TracingInsights
+tests/
+  RaceMind.UnitTests/   Pruebas del análisis determinista
 data/
   samples/               Solo muestras pequeñas, autorizadas y anonimizadas
 ```
@@ -41,16 +46,37 @@ Los ficheros completos de telemetría no se versionan en este repositorio. Consu
 - UI: React/TypeScript o Blazor, pendiente de decisión.
 - Infraestructura: Git, GitHub y Docker.
 
-## Desarrollo
+## Ejecutar la API
 
-La solución ejecutable todavía no está creada. Los siguientes hitos son completar el perfilado de los formatos, acordar unidades y reglas de normalización, validar el modelo conceptual y definir el primer caso de uso vertical. Después se generará la solución .NET y se añadirá configuración de ejecución y pruebas.
+Requiere .NET 10 SDK. Desde esta carpeta:
+
+```bash
+dotnet run --project src/RaceMind.Api --urls http://localhost:5080
+```
+
+La API intenta localizar `Telemetría/F1` en una carpeta padre. Si el dataset está en otra ruta, define `F1DataRoot` como variable de entorno/configuración y apunta al directorio que contiene carpetas de Grandes Premios. Ejemplo PowerShell:
+
+```powershell
+$env:F1DataRoot = "C:\ruta\a\Telemetría\F1"
+dotnet run --project src/RaceMind.Api --urls http://localhost:5080
+```
+
+La API no importa ni copia los 10 GB al repositorio: lee únicamente metadatos del conjunto y abre la vuelta solicitada bajo demanda. Endpoints y guía de pantallas: [`docs/api-and-frontend.md`](docs/api-and-frontend.md).
+
+Pruebas:
+
+```bash
+dotnet test RaceMind.sln
+```
 
 ## Documentación de partida
 
 - [`docs/project-definition.md`](docs/project-definition.md): resumen del problema, objetivos y MVP según la definición del TFM.
 - [`docs/data/telemetry-inventory.md`](docs/data/telemetry-inventory.md): inventario inicial y hallazgos de los datos disponibles.
 - [`docs/architecture/data-model.md`](docs/architecture/data-model.md): propuesta inicial de modelo lógico.
+- [`docs/api-and-frontend.md`](docs/api-and-frontend.md): contrato inicial REST y navegación propuesta para el dashboard.
 - [`docs/decisions/0001-modular-monolith-and-source-adapters.md`](docs/decisions/0001-modular-monolith-and-source-adapters.md): decisiones de arquitectura iniciales.
+- [`docs/decisions/0002-initial-dataset-and-ml-scope.md`](docs/decisions/0002-initial-dataset-and-ml-scope.md): alcance inicial de fuente/caso de uso y límites para ML.
 
 ## Licencias y atribución
 

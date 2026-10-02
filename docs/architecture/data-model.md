@@ -59,6 +59,7 @@ Para conservar canales de alta frecuencia/específicos sin tener que añadir col
 - Definición por nombre canónico, unidad, tipo numérico/booleano/categórico, ejes/posición (p. ej. neumático FL), descripción y regla de conversión.
 - Valor opcional por muestra, asociado a esa definición; ausencia significa dato no observado.
 - Canales potenciales: tyre temperature/pressure/wear por rueda, steering, lean angle, freno delantero/trasero, velocidades de rueda, suspensión, slip, DRS y señales IMU.
+- En la muestra F1, `throttle` está en escala 0–100 y `brake` en 0–1; las conversiones deben definirse de forma independiente por canal y adaptador.
 - El mecanismo físico (columnas especializadas, tabla de valores o almacenamiento analítico separado) queda pendiente de volumen/rendimiento y no se decide en esta fase.
 
 ### TelemetryAggregate
@@ -78,6 +79,7 @@ Las fuentes como el CSV de ACC que ya contienen una fila de métricas por vuelta
 - Si `time` F1 es relativo al inicio de vuelta y `distance` es monótono/uniforme; significado de `rel_distance` y del eje X/Y/Z.
 - Cobertura real y unidades de cada canal por fuente; definición de aceleraciones y convenciones de signos.
 - Si `lap_progress` de Assetto Corsa es suficiente para delimitar vueltas y los identificadores de Forza/Kawasaki permiten reconstruir sesiones.
+- El CSV ACC examinado solo tiene agregados y etiquetas de cluster sin procedencia documentada; no tratarlo como series temporales ni usar esas etiquetas como verdad de terreno por ahora.
 - Alineación temporal de registros ECU e IMU de la moto y tratamiento de canales dispersos.
 - Tamaño esperado, consultas principales y estrategia de persistencia de muestras/valores de canal.
 - Requisitos de comparación: misma vuelta/coche/circuito/condiciones o normalización explícita entre sesiones.

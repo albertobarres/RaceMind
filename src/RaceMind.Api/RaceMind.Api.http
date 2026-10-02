@@ -1,0 +1,6 @@
+@RaceMind.Api_HostAddress = http://localhost:5171
+
+GET {{RaceMind.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
