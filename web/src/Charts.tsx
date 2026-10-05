@@ -8,12 +8,12 @@ type SeriesKey =
   | 'deltaElapsedSeconds';
 
 interface SeriesChartProps {
-  title: string;
-  unit: string;
-  comparison: LapComparison;
-  series: { key: SeriesKey; label: string; color: string }[];
-  format?: (value: number) => string;
-  range?: [number, number];
+  readonly title: string;
+  readonly unit: string;
+  readonly comparison: LapComparison;
+  readonly series: { readonly key: SeriesKey; readonly label: string; readonly color: string }[];
+  readonly format?: (value: number) => string;
+  readonly range?: [number, number];
 }
 
 export function SeriesChart({ title, unit, comparison, series, format, range }: SeriesChartProps) {
@@ -82,7 +82,7 @@ export function SeriesChart({ title, unit, comparison, series, format, range }: 
   );
 }
 
-export function TrackMap({ corners }: { corners: CornerSummary[] }) {
+export function TrackMap({ corners }: { readonly corners: CornerSummary[] }) {
   const dimensions = useMemo(() => {
     if (corners.length < 2) return null;
     const xs = corners.map((corner) => corner.x);
