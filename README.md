@@ -61,7 +61,7 @@ $env:F1DataRoot = "C:\ruta\a\Telemetría\F1"
 dotnet run --project src/RaceMind.Api --urls http://localhost:5080
 ```
 
-La API no importa ni copia los 10 GB al repositorio: lee únicamente metadatos del conjunto y abre la vuelta solicitada bajo demanda. Endpoints y guía de pantallas: [`docs/api-and-frontend.md`](docs/api-and-frontend.md).
+La API no importa ni copia los 10 GB al repositorio: cataloga nombres de eventos/sesiones desde las carpetas y abre resúmenes y telemetría bajo demanda. La interfaz muestra un mensaje de carga, no selecciona evento ni piloto automáticamente y espera a que el usuario tome esas decisiones. Endpoints y guía de pantallas: [`docs/api-and-frontend.md`](docs/api-and-frontend.md).
 
 ## Frontend
 

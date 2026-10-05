@@ -7,7 +7,7 @@ interface DashboardState {
   selectedSessionId: string;
   selectedSession: SessionSummary | null;
   session: SessionDetails | null;
-  driver: string;
+  driver: string | null;
   laps: LapSummary[];
   referenceLap: number;
   comparedLap: number;
@@ -21,7 +21,7 @@ interface DashboardState {
   setComparedLap: (value: number) => void;
   setSearch: (value: string) => void;
   setError: (value: string | null) => void;
-  chooseDriver: (value: string) => void;
+  chooseDriver: (value: string | null) => void;
   chooseSession: (value: string) => void;
 }
 
@@ -34,7 +34,7 @@ export function useRaceMindDashboard(): DashboardState {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [session, setSession] = useState<SessionDetails | null>(null);
-  const [driver, setDriver] = useState('VER');
+  const [driver, setDriver] = useState<string | null>(null);
   const [laps, setLaps] = useState<LapSummary[]>([]);
   const [referenceLap, setReferenceLap] = useState(10);
   const [comparedLap, setComparedLap] = useState(11);
@@ -55,11 +55,11 @@ export function useRaceMindDashboard(): DashboardState {
     api.sessions(controller.signal)
       .then((items) => {
         setSessions(items);
-        const preferred = findPreferredSession(items);
-        if (preferred) setSelectedSessionId(preferred.id);
       })
       .catch((cause: unknown) => setFailure(cause, controller.signal, setError, 'No se pudo conectar con RaceMind API.'))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
     return () => controller.abort();
   }, []);
 
@@ -73,16 +73,19 @@ export function useRaceMindDashboard(): DashboardState {
       .then(({ details, trackCorners }) => {
         setSession(details);
         setCorners(trackCorners);
-        const preferredDriver = findPreferredDriver(details);
-        if (preferredDriver) setDriver(preferredDriver.code);
       })
       .catch((cause: unknown) => setFailure(cause, controller.signal, setError, 'No se pudo cargar la sesión.'))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
     return () => controller.abort();
   }, [selectedSession]);
 
   useEffect(() => {
-    if (!selectedSession || !driver) return;
+    if (!selectedSession || !driver) {
+      setLaps([]);
+      return;
+    }
     const controller = new AbortController();
     setLoading(true);
     setComparison(null);
@@ -92,7 +95,9 @@ export function useRaceMindDashboard(): DashboardState {
         chooseDefaultLaps(items, setReferenceLap, setComparedLap);
       })
       .catch((cause: unknown) => setFailure(cause, controller.signal, setError, 'No se pudieron cargar las vueltas.'))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
     return () => controller.abort();
   }, [selectedSession, driver]);
 
@@ -106,19 +111,29 @@ export function useRaceMindDashboard(): DashboardState {
         setFailure(cause, controller.signal, setError, 'No se pudo comparar estas vueltas.');
         if (!controller.signal.aborted) setComparison(null);
       })
-      .finally(() => setComparisonLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setComparisonLoading(false);
+      });
     return () => controller.abort();
   }, [selectedSession, driver, referenceLap, comparedLap]);
 
-  const chooseDriver = (value: string) => {
+  const chooseDriver = (value: string | null) => {
     setDriver(value);
+    setLaps([]);
     setComparison(null);
+    setError(null);
+    if (value) setLoading(true);
   };
 
   const chooseSession = (value: string) => {
     setSelectedSessionId(value);
+    setLoading(true);
+    setError(null);
     setSession(null);
+    setDriver(null);
     setLaps([]);
+    setCorners([]);
+    setComparison(null);
   };
 
   return {
@@ -143,14 +158,6 @@ export function useRaceMindDashboard(): DashboardState {
     chooseDriver,
     chooseSession,
   };
-}
-
-function findPreferredSession(items: SessionSummary[]) {
-  return items.find((item) => item.grandPrix === 'Barcelona Grand Prix' && item.sessionName === 'Race') ?? items[0];
-}
-
-function findPreferredDriver(details: SessionDetails) {
-  return details.drivers.find((item) => item.code === 'VER') ?? details.drivers[0];
 }
 
 function chooseDefaultLaps(

@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\RaceMind.Domain\RaceMind.Domain.csproj" />
     <ProjectReference Include="..\..\src\RaceMind.Application\RaceMind.Application.csproj" />
+    <ProjectReference Include="..\..\src\RaceMind.Infrastructure\RaceMind.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

@@ -30,7 +30,7 @@ Prefijo: `/api`
 | Método y ruta | Uso | Respuesta para UI |
 |---|---|---|
 | `GET /health` | Estado de API | estado de servicio |
-| `GET /sessions` | Descubrir Grandes Premios/sesiones disponibles | IDs, número de pilotos y conteo de vueltas de los resúmenes |
+| `GET /sessions` | Descubrir Grandes Premios/sesiones disponibles | IDs/nombres; conteos pueden ser nulos y no requieren parsear los resúmenes de vuelta |
 | `GET /sessions/{grandPrix}/{sessionName}` | Cabecera de sesión | pilotos, equipos, color, mejor vuelta, curvas y resumen meteorológico |
 | `GET /sessions/{grandPrix}/{sessionName}/corners` | Geometría del trazado | número, distancia y posición X/Y de curvas |
 | `GET /sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps` | Elegir vueltas de un piloto | tiempos, sectores, compuesto, stint, disponibilidad de telemetría y PB |
@@ -51,15 +51,16 @@ Errores previstos: `404` para sesión/piloto/vuelta inexistente, `400` para par�
 
 ### 1. Explorador de sesiones
 
-- Selector de Gran Premio y sesión (Race, Practice, Qualifying, etc.) usando `GET /sessions`.
+- Lista/selector de Gran Premio y sesión (Race, Practice, Qualifying, etc.) usando `GET /sessions`; al arrancar no hay evento seleccionado.
 - Cards/lista de sesiones con número de pilotos y vueltas como resumen.
+- Mostrar un indicador de carga mientras se construye el catálogo; los conteos desconocidos se presentan como `—` en lugar de disparar una carga masiva de telemetría.
 - Mostrar estado vacío/errores cuando una carpeta no tenga los ficheros esperados.
 
 ### 2. Resumen de sesión
 
 - Tabla de pilotos con nombre, código, equipo/color, vueltas disponibles y mejor tiempo.
 - Indicadores de contexto: circuito, sesión, número de curvas y una tarjeta meteorológica.
-- Elegir piloto abre el análisis de vueltas.
+- Ningún piloto se preselecciona. Elegir explícitamente un piloto abre el análisis de vueltas.
 
 ### 3. Comparador de vueltas (pantalla principal MVP)
 

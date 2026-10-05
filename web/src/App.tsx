@@ -89,11 +89,11 @@ export default function App() {
       <main id="top" className="main-content">
         <Header grandPrix={selectedSession?.grandPrix} />
         {error && <ErrorBanner message={error} onClose={() => setError(null)} />}
-      <SessionWorkspace
+        <SessionWorkspace
           loading={loading}
           session={session}
           selectedDriver={selectedDriver}
-          driver={driver}
+          driver={driver ?? ''}
           reference={reference}
           compared={compared}
           availableLaps={availableLaps}
@@ -147,7 +147,7 @@ function Sidebar(props: SidebarProps) {
           <button key={item.id} className={`session-nav ${selectedSessionId === item.id ? 'selected' : ''}`} onClick={() => onChooseSession(item.id)}>
             <span className="session-nav-icon"><Flag size={15} /></span>
             <span className="session-nav-text"><strong>{formatGrandPrix(item.grandPrix)}</strong><small>{item.sessionName}</small></span>
-            <span className="session-nav-count">{item.driverCount}</span>
+            <span className="session-nav-count">{formatSessionDriverCount(item.driverCount)}</span>
           </button>
         ))}
         {!loading && filteredSessions.length === 0 && <div className="empty-side">No hay eventos con ese nombre.</div>}
@@ -195,10 +195,10 @@ interface SessionWorkspaceProps {
 
 function SessionWorkspace(props: SessionWorkspaceProps) {
   if (props.loading && !props.session) {
-    return <div className="loading-screen"><span className="spinner large" />Cargando datos de sesión...</div>;
+    return <div className="loading-screen"><span className="spinner large" /><span><strong>Cargando datos</strong><small>Preparando el catálogo de sesiones de telemetría…</small></span></div>;
   }
   if (!props.session) {
-    return <div className="loading-screen"><span>No session selected.</span></div>;
+    return <SelectionPrompt title="Selecciona un Gran Premio" message="Elige un evento y una sesión en el panel izquierdo para consultar sus condiciones, pilotos y vueltas." />;
   }
   return <SessionContent {...props} session={props.session} />;
 }
@@ -227,21 +227,25 @@ function SessionContent(props: SessionWorkspaceProps & { readonly session: Sessi
       <PageHeading session={session} onRefresh={onChooseSession} />
       <SessionStrip session={session} />
       <DriverSelection drivers={session.drivers} selectedDriver={driver} onChooseDriver={onChooseDriver} />
-      <LapComparisonSection
-        session={session}
-        selectedDriver={selectedDriver}
-        driver={driver}
-        reference={reference}
-        compared={compared}
-        availableLaps={availableLaps}
-        comparison={comparison}
-        comparisonLoading={comparisonLoading}
-        referenceLap={referenceLap}
-        comparedLap={comparedLap}
-        corners={corners}
-        onReferenceChange={onReferenceChange}
-        onComparedChange={onComparedChange}
-      />
+      {driver ? (
+        <LapComparisonSection
+          session={session}
+          selectedDriver={selectedDriver}
+          driver={driver}
+          reference={reference}
+          compared={compared}
+          availableLaps={availableLaps}
+          comparison={comparison}
+          comparisonLoading={comparisonLoading}
+          referenceLap={referenceLap}
+          comparedLap={comparedLap}
+          corners={corners}
+          onReferenceChange={onReferenceChange}
+          onComparedChange={onComparedChange}
+        />
+      ) : (
+        <SelectionPrompt title="Selecciona un piloto" message="Las tarjetas muestran el mejor tiempo conocido. Selecciona un piloto para cargar sus vueltas y compararlas." />
+      )}
     </div>
   );
 }
@@ -255,6 +259,16 @@ function PageHeading({ session, onRefresh }: { readonly session: SessionDetails;
         <p>Compara vueltas y descubre dónde cambia el rendimiento.</p>
       </div>
       <div className="heading-actions"><span className="data-badge"><span className="status-dot" /> SESSION DATA</span><button className="icon-button" title="Actualizar" onClick={onRefresh}><RefreshCw size={16} /></button></div>
+    </section>
+  );
+}
+
+function SelectionPrompt({ title, message }: { readonly title: string; readonly message: string }) {
+  return (
+    <section className="selection-prompt" aria-live="polite">
+      <span className="selection-prompt-icon"><Flag size={19} /></span>
+      <h2>{title}</h2>
+      <p>{message}</p>
     </section>
   );
 }
@@ -280,6 +294,15 @@ function DriverSelection({
   readonly selectedDriver: string;
   readonly onChooseDriver: (value: string) => void;
 }) {
+  if (drivers.length === 0) {
+    return (
+      <section className="driver-section">
+        <div className="section-title"><div><span className="section-index">01</span><h2>Driver selection</h2></div></div>
+        <div className="inline-loading"><span className="spinner" />Cargando pilotos del evento…</div>
+      </section>
+    );
+  }
+
   return (
     <section className="driver-section">
       <div className="section-title"><div><span className="section-index">01</span><h2>Driver selection</h2></div><span className="muted-label">SELECT A DRIVER TO ANALYSE</span></div>
@@ -547,12 +570,13 @@ interface DriverCardProps {
 function DriverCard({ driver, selected, onClick }: DriverCardProps) {
   const color = getTeamColor(driver);
   const initials = getDriverInitials(driver.fullName ?? driver.code);
+  const bestLap = driver.bestLapSeconds == null ? 'TIME PENDING' : formatLapTime(driver.bestLapSeconds);
   return (
     <button className={`driver-card ${selected ? 'driver-selected' : ''}`} style={{ '--team-color': color } as CSSProperties & { '--team-color': string }} onClick={onClick}>
       <span className="driver-color" />
       <span className="driver-avatar">{initials}</span>
       <span className="driver-info"><strong>{driver.code}</strong><small>{driver.fullName ?? driver.team ?? 'Driver'}</small></span>
-      <span className="driver-best"><small>BEST</small><strong>{formatLapTime(driver.bestLapSeconds)}</strong></span>
+      <span className="driver-best"><small>BEST</small><strong>{bestLap}</strong></span>
     </button>
   );
 }
@@ -661,4 +685,8 @@ function filterSessions(sessions: SessionSummary[], search: string) {
 
 function formatGrandPrix(grandPrix: string) {
   return grandPrix.replace(' Grand Prix', ' GP');
+}
+
+function formatSessionDriverCount(driverCount: number | null) {
+  return driverCount == null ? '—' : driverCount.toString();
 }

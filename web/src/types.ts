@@ -2,8 +2,8 @@ export interface SessionSummary {
   id: string;
   grandPrix: string;
   sessionName: string;
-  driverCount: number;
-  lapCount: number;
+  driverCount: number | null;
+  lapCount: number | null;
 }
 
 export interface DriverSummary {
@@ -11,7 +11,7 @@ export interface DriverSummary {
   fullName: string | null;
   team: string | null;
   teamColour: string | null;
-  lapCount: number;
+  lapCount: number | null;
   bestLapSeconds: number | null;
 }
 

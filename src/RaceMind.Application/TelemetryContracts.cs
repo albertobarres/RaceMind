@@ -2,9 +2,9 @@ using RaceMind.Domain;
 
 namespace RaceMind.Application;
 
-public sealed record SessionSummary(string Id, string GrandPrix, string SessionName, int DriverCount, int LapCount);
+public sealed record SessionSummary(string Id, string GrandPrix, string SessionName, int? DriverCount, int? LapCount);
 
-public sealed record DriverSummary(string Code, string? FullName, string? Team, string? TeamColour, int LapCount, double? BestLapSeconds);
+public sealed record DriverSummary(string Code, string? FullName, string? Team, string? TeamColour, int? LapCount, double? BestLapSeconds);
 
 public sealed record SessionDetails(string Id, string GrandPrix, string SessionName, IReadOnlyList<DriverSummary> Drivers, int CornerCount, WeatherSummary? Weather);
 
