@@ -31,38 +31,38 @@ api.MapGet("/health", () => Results.Ok(new { status = "ok", service = "RaceMind.
 api.MapGet("/catalog", async (ITelemetryCatalogProvider provider, CancellationToken cancellationToken) =>
     Results.Ok(await provider.GetCatalogAsync(cancellationToken))).WithName("GetTelemetryCatalog");
 
-api.MapGet("/{year:int}/cars/f1/sessions", async (int year, IF1DataProvider provider, CancellationToken cancellationToken) =>
+api.MapGet("/cars/f1/{year:int}/sessions", async (int year, IF1DataProvider provider, CancellationToken cancellationToken) =>
     Results.Ok(await provider.GetSessionsAsync(year, cancellationToken))).WithName("GetSessions");
 
-api.MapGet("/{year:int}/cars/f1/sessions/{grandPrix}/{sessionName}", async (int year, string grandPrix, string sessionName, IF1DataProvider provider, CancellationToken cancellationToken) =>
+api.MapGet("/cars/f1/{year:int}/sessions/{grandPrix}/{sessionName}", async (int year, string grandPrix, string sessionName, IF1DataProvider provider, CancellationToken cancellationToken) =>
     {
         var session = await provider.GetSessionAsync(year, grandPrix, sessionName, cancellationToken);
         return session is null ? Results.NotFound() : Results.Ok(session);
     })
     .WithName("GetSession");
 
-api.MapGet("/{year:int}/cars/f1/sessions/{grandPrix}/{sessionName}/corners", async (int year, string grandPrix, string sessionName, IF1DataProvider provider, CancellationToken cancellationToken) =>
+api.MapGet("/cars/f1/{year:int}/sessions/{grandPrix}/{sessionName}/corners", async (int year, string grandPrix, string sessionName, IF1DataProvider provider, CancellationToken cancellationToken) =>
     {
         var corners = await provider.GetCornersAsync(year, grandPrix, sessionName, cancellationToken);
         return corners is null ? Results.NotFound() : Results.Ok(corners);
     })
     .WithName("GetSessionCorners");
 
-api.MapGet("/{year:int}/cars/f1/sessions/{grandPrix}/{sessionName}/drivers", async (int year, string grandPrix, string sessionName, IF1DataProvider provider, CancellationToken cancellationToken) =>
+api.MapGet("/cars/f1/{year:int}/sessions/{grandPrix}/{sessionName}/drivers", async (int year, string grandPrix, string sessionName, IF1DataProvider provider, CancellationToken cancellationToken) =>
     {
         var drivers = await provider.GetDriversAsync(year, grandPrix, sessionName, cancellationToken);
         return drivers is null ? Results.NotFound() : Results.Ok(drivers);
     })
     .WithName("GetSessionDrivers");
 
-api.MapGet("/{year:int}/cars/f1/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps", async (int year, string grandPrix, string sessionName, string driverCode, IF1DataProvider provider, CancellationToken cancellationToken) =>
+api.MapGet("/cars/f1/{year:int}/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps", async (int year, string grandPrix, string sessionName, string driverCode, IF1DataProvider provider, CancellationToken cancellationToken) =>
     {
         var laps = await provider.GetLapsAsync(year, grandPrix, sessionName, driverCode, cancellationToken);
         return laps is null ? Results.NotFound() : Results.Ok(laps);
     })
     .WithName("GetDriverLaps");
 
-api.MapGet("/{year:int}/cars/f1/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps/{lapNumber:int}/telemetry", async (int year, string grandPrix, string sessionName, string driverCode, int lapNumber, IF1DataProvider provider, CancellationToken cancellationToken) =>
+api.MapGet("/cars/f1/{year:int}/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps/{lapNumber:int}/telemetry", async (int year, string grandPrix, string sessionName, string driverCode, int lapNumber, IF1DataProvider provider, CancellationToken cancellationToken) =>
     {
         var lap = await provider.GetLapTelemetryAsync(year, grandPrix, sessionName, driverCode, lapNumber, cancellationToken);
         return lap is null
@@ -71,7 +71,7 @@ api.MapGet("/{year:int}/cars/f1/sessions/{grandPrix}/{sessionName}/drivers/{driv
     })
     .WithName("GetLapTelemetry");
 
-api.MapGet("/{year:int}/cars/f1/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps/compare",
+api.MapGet("/cars/f1/{year:int}/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps/compare",
     async (int year, string grandPrix, string sessionName, string driverCode, int referenceLap, int comparedLap, int? points, IF1DataProvider provider,
         LapComparisonService comparisonService, CancellationToken cancellationToken) =>
     {

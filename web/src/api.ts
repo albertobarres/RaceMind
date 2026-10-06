@@ -22,13 +22,13 @@ const segment = (value: string) => encodeURIComponent(value);
 
 export const api = {
   catalog: (signal?: AbortSignal) => request<TelemetryCatalog>('/catalog', signal),
-  sessions: (year: number, signal?: AbortSignal) => request<SessionSummary[]>(`/${year}/cars/f1/sessions`, signal),
+  sessions: (year: number, signal?: AbortSignal) => request<SessionSummary[]>(`/cars/f1/${year}/sessions`, signal),
   session: (year: number, grandPrix: string, sessionName: string, signal?: AbortSignal) =>
-    request<SessionDetails>(`/${year}/cars/f1/sessions/${segment(grandPrix)}/${segment(sessionName)}`, signal),
+    request<SessionDetails>(`/cars/f1/${year}/sessions/${segment(grandPrix)}/${segment(sessionName)}`, signal),
   corners: (year: number, grandPrix: string, sessionName: string, signal?: AbortSignal) =>
-    request<CornerSummary[]>(`/${year}/cars/f1/sessions/${segment(grandPrix)}/${segment(sessionName)}/corners`, signal),
+    request<CornerSummary[]>(`/cars/f1/${year}/sessions/${segment(grandPrix)}/${segment(sessionName)}/corners`, signal),
   laps: (year: number, grandPrix: string, sessionName: string, driver: string, signal?: AbortSignal) =>
-    request<LapSummary[]>(`/${year}/cars/f1/sessions/${segment(grandPrix)}/${segment(sessionName)}/drivers/${segment(driver)}/laps`, signal),
+    request<LapSummary[]>(`/cars/f1/${year}/sessions/${segment(grandPrix)}/${segment(sessionName)}/drivers/${segment(driver)}/laps`, signal),
   compare: (year: number, grandPrix: string, sessionName: string, driver: string, reference: number, compared: number, signal?: AbortSignal) =>
-    request<LapComparison>(`/${year}/cars/f1/sessions/${segment(grandPrix)}/${segment(sessionName)}/drivers/${segment(driver)}/laps/compare?referenceLap=${reference}&comparedLap=${compared}&points=201`, signal),
+    request<LapComparison>(`/cars/f1/${year}/sessions/${segment(grandPrix)}/${segment(sessionName)}/drivers/${segment(driver)}/laps/compare?referenceLap=${reference}&comparedLap=${compared}&points=201`, signal),
 };
