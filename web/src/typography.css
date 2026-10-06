@@ -15,6 +15,14 @@
   font-size: 17px;
 }
 
+.brand-button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
 .brand small {
   font-size: 9px;
 }

@@ -64,6 +64,7 @@ export default function App() {
     setComparedLap,
     setSearch,
     setError,
+    resetDashboard,
     chooseDriver,
     chooseSession,
   } = dashboard;
@@ -84,6 +85,7 @@ export default function App() {
         search={search}
         onSearchChange={setSearch}
         onChooseSession={chooseSession}
+        onHome={resetDashboard}
       />
 
       <main id="top" className="main-content">
@@ -120,16 +122,17 @@ interface SidebarProps {
   readonly search: string;
   readonly onSearchChange: (value: string) => void;
   readonly onChooseSession: (id: string) => void;
+  readonly onHome: () => void;
 }
 
 function Sidebar(props: SidebarProps) {
-  const { sessions, filteredSessions, selectedSessionId, loading, search, onSearchChange, onChooseSession } = props;
+  const { sessions, filteredSessions, selectedSessionId, loading, search, onSearchChange, onChooseSession, onHome } = props;
   return (
     <aside className="sidebar">
-      <a className="brand" href="#top" aria-label="RaceMind inicio">
+      <button className="brand brand-button" type="button" aria-label="Volver a RaceMind inicio y deseleccionar sesión" onClick={onHome}>
         <span className="brand-mark"><Activity size={20} strokeWidth={2.5} /></span>
         <span>RACE<span className="brand-light">MIND</span><small>TELEMETRY INTELLIGENCE</small></span>
-      </a>
+      </button>
 
       <div className="side-section-label">WORKSPACE</div>
       <button className="nav-item active"><Gauge size={17} />Performance analysis</button>

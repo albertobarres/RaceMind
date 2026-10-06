@@ -21,6 +21,7 @@ interface DashboardState {
   setComparedLap: (value: number) => void;
   setSearch: (value: string) => void;
   setError: (value: string | null) => void;
+  resetDashboard: () => void;
   chooseDriver: (value: string | null) => void;
   chooseSession: (value: string) => void;
 }
@@ -136,6 +137,18 @@ export function useRaceMindDashboard(): DashboardState {
     setComparison(null);
   };
 
+  const resetDashboard = () => {
+    setSelectedSessionId('');
+    setSession(null);
+    setDriver(null);
+    setLaps([]);
+    setCorners([]);
+    setComparison(null);
+    setError(null);
+    setLoading(false);
+    setComparisonLoading(false);
+  };
+
   return {
     sessions,
     selectedSessionId,
@@ -155,6 +168,7 @@ export function useRaceMindDashboard(): DashboardState {
     setComparedLap,
     setSearch,
     setError,
+    resetDashboard,
     chooseDriver,
     chooseSession,
   };
