@@ -1,0 +1,322 @@
+/* Readability pass: increase dense dashboard labels while keeping data tables compact. */
+:root {
+  font-size: 15px;
+}
+
+.sidebar {
+  width: 272px;
+}
+
+.main-content {
+  margin-left: 272px;
+}
+
+.brand {
+  font-size: 17px;
+}
+
+.brand small {
+  font-size: 9px;
+}
+
+.side-section-label,
+.muted-label,
+.data-badge,
+.live-pill,
+.session-strip-event small,
+.session-strip-stat small,
+.strip-weather small,
+.lap-select-group > label,
+.lap-summary-label,
+.sector-card > small,
+.condition small,
+.visualization-heading,
+.track-legend,
+.chart-legend span,
+.chart-axis-caption,
+.conditions-foot,
+.footer-note {
+  font-size: 10px;
+}
+
+.nav-item {
+  height: 42px;
+  font-size: 13px;
+}
+
+.search-box {
+  height: 38px;
+}
+
+.search-box input {
+  font-size: 12px;
+}
+
+.session-nav {
+  height: 49px;
+  gap: 11px;
+  padding-inline: 9px;
+}
+
+.session-nav-icon {
+  width: 29px;
+  height: 29px;
+}
+
+.session-nav-text strong {
+  font-size: 12px;
+}
+
+.session-nav-text small,
+.source-status small,
+.profile-chip small {
+  font-size: 10px;
+}
+
+.session-nav-count,
+.source-status strong,
+.profile-chip strong {
+  font-size: 11px;
+}
+
+.breadcrumbs {
+  font-size: 12px;
+}
+
+.page-content {
+  padding-top: 36px;
+}
+
+.page-heading h1 {
+  font-size: 36px;
+}
+
+.page-heading p {
+  font-size: 13px;
+}
+
+.eyebrow {
+  font-size: 10px;
+}
+
+.session-strip-event strong {
+  font-size: 14px;
+}
+
+.session-strip-stat strong,
+.strip-weather span strong {
+  font-size: 15px;
+}
+
+.weather-air {
+  font-size: 10px;
+}
+
+.section-title h2 {
+  font-size: 16px;
+}
+
+.section-index,
+.section-subtitle {
+  font-size: 11px;
+}
+
+.driver-card {
+  height: 64px;
+  gap: 10px;
+  padding-inline: 10px;
+}
+
+.driver-avatar {
+  width: 32px;
+  height: 32px;
+  flex-basis: 32px;
+  font-size: 10px;
+}
+
+.driver-info strong {
+  font-size: 12px;
+}
+
+.driver-info small {
+  font-size: 10px;
+}
+
+.driver-best small {
+  font-size: 9px;
+}
+
+.driver-best strong {
+  font-size: 11px;
+}
+
+.lap-select-group > label,
+.compare-status {
+  font-size: 10px;
+}
+
+.lap-select-wrap {
+  height: 37px;
+}
+
+.lap-select-wrap select {
+  font-size: 11px;
+}
+
+.tyre-info small {
+  font-size: 9px;
+}
+
+.tyre-info strong {
+  font-size: 11px;
+}
+
+.lap-summary-card,
+.delta-card {
+  min-height: 91px;
+}
+
+.lap-summary-label,
+.delta-card small {
+  font-size: 10px;
+}
+
+.lap-summary-time {
+  font-size: 25px;
+}
+
+.lap-summary-meta {
+  font-size: 10px;
+}
+
+.delta-card strong {
+  font-size: 23px;
+}
+
+.delta-card span,
+.sector-card span {
+  font-size: 10px;
+}
+
+.sector-card {
+  padding: 12px 14px;
+}
+
+.sector-card strong {
+  font-size: 16px;
+}
+
+.card-title h3,
+.chart-heading h3 {
+  font-size: 13px;
+}
+
+.card-title span,
+.chart-heading > div > span {
+  font-size: 10px;
+}
+
+.corner-count {
+  font-size: 10px !important;
+}
+
+.condition {
+  min-height: 55px;
+}
+
+.condition strong {
+  font-size: 15px;
+}
+
+.corner-label {
+  font-size: 9px;
+}
+
+.chart-legend span,
+.axis-label {
+  font-size: 10px;
+}
+
+.telemetry-notes p {
+  font-size: 12px;
+}
+
+.note-callout {
+  font-size: 11px;
+}
+
+.empty-side,
+.side-loading,
+.loading-screen {
+  font-size: 13px;
+}
+
+.loading-screen strong {
+  font-size: 16px;
+}
+
+.loading-screen small {
+  font-size: 12px;
+}
+
+.selection-prompt h2 {
+  font-size: 19px;
+}
+
+.selection-prompt p {
+  font-size: 12px;
+}
+
+.inline-loading {
+  font-size: 12px;
+}
+
+@media (max-width: 1250px) {
+  .sidebar {
+    width: 232px;
+  }
+
+  .main-content {
+    margin-left: 232px;
+  }
+}
+
+@media (max-width: 950px) {
+  .sidebar {
+    width: 62px;
+  }
+
+  .main-content {
+    margin-left: 62px;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-heading h1 {
+    font-size: 29px;
+  }
+
+  .session-nav-text strong {
+    font-size: 12px;
+  }
+
+  .session-nav-text small {
+    font-size: 10px;
+  }
+
+  .driver-info small {
+    font-size: 9px;
+  }
+
+  .lap-select-wrap select {
+    font-size: 10px;
+  }
+
+  .lap-summary-time {
+    font-size: 19px;
+  }
+
+  .sector-card strong {
+    font-size: 12px;
+  }
+}
