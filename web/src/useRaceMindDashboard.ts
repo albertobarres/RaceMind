@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from './api';
-import type { CornerSummary, LapComparison, LapSummary, SessionDetails, SessionSummary } from './types';
+import type { CornerSummary, LapComparison, LapSummary, SessionDetails, SessionSummary, TelemetryCatalog } from './types';
 
 interface DashboardState {
-  sessions: SessionSummary[];
+  catalog: TelemetryCatalog | null;
+  selectedYear: number | null;
   selectedSessionId: string;
   selectedSession: SessionSummary | null;
   session: SessionDetails | null;
@@ -23,7 +24,7 @@ interface DashboardState {
   setError: (value: string | null) => void;
   resetDashboard: () => void;
   chooseDriver: (value: string | null) => void;
-  chooseSession: (value: string) => void;
+  chooseF1Session: (year: number, value: string) => void;
 }
 
 const isAbortError = (cause: unknown) => cause instanceof DOMException && cause.name === 'AbortError';
@@ -32,8 +33,10 @@ const errorMessage = (cause: unknown, fallback: string) =>
   cause instanceof Error ? cause.message : fallback;
 
 export function useRaceMindDashboard(): DashboardState {
-  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [catalog, setCatalog] = useState<TelemetryCatalog | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState('');
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [selectedF1Session, setSelectedF1Session] = useState<SessionSummary | null>(null);
   const [session, setSession] = useState<SessionDetails | null>(null);
   const [driver, setDriver] = useState<string | null>(null);
   const [laps, setLaps] = useState<LapSummary[]>([]);
@@ -46,16 +49,13 @@ export function useRaceMindDashboard(): DashboardState {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
-  const selectedSession = useMemo(
-    () => sessions.find((item) => item.id === selectedSessionId) ?? null,
-    [sessions, selectedSessionId],
-  );
+  const selectedSession = selectedF1Session;
 
   useEffect(() => {
     const controller = new AbortController();
-    api.sessions(controller.signal)
-      .then((items) => {
-        setSessions(items);
+    api.catalog(controller.signal)
+      .then((value) => {
+        setCatalog(value);
       })
       .catch((cause: unknown) => setFailure(cause, controller.signal, setError, 'No se pudo conectar con RaceMind API.'))
       .finally(() => {
@@ -65,12 +65,12 @@ export function useRaceMindDashboard(): DashboardState {
   }, []);
 
   useEffect(() => {
-    if (!selectedSession) return;
+    if (!selectedSession || selectedYear == null) return;
     const controller = new AbortController();
     setLoading(true);
     setError(null);
     setComparison(null);
-    loadSessionDetails(selectedSession, controller.signal)
+    loadSessionDetails(selectedYear, selectedSession, controller.signal)
       .then(({ details, trackCorners }) => {
         setSession(details);
         setCorners(trackCorners);
@@ -80,17 +80,17 @@ export function useRaceMindDashboard(): DashboardState {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [selectedSession]);
+  }, [selectedSession, selectedYear]);
 
   useEffect(() => {
-    if (!selectedSession || !driver) {
+    if (!selectedSession || selectedYear == null || !driver) {
       setLaps([]);
       return;
     }
     const controller = new AbortController();
     setLoading(true);
     setComparison(null);
-    api.laps(selectedSession.grandPrix, selectedSession.sessionName, driver, controller.signal)
+    api.laps(selectedYear, selectedSession.grandPrix, selectedSession.sessionName, driver, controller.signal)
       .then((items) => {
         setLaps(items);
         chooseDefaultLaps(items, setReferenceLap, setComparedLap);
@@ -100,13 +100,13 @@ export function useRaceMindDashboard(): DashboardState {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [selectedSession, driver]);
+  }, [selectedSession, selectedYear, driver]);
 
   useEffect(() => {
-    if (!selectedSession || !driver || !areLapsComparable(referenceLap, comparedLap)) return;
+    if (!selectedSession || selectedYear == null || !driver || !areLapsComparable(referenceLap, comparedLap)) return;
     const controller = new AbortController();
     setComparisonLoading(true);
-    api.compare(selectedSession.grandPrix, selectedSession.sessionName, driver, referenceLap, comparedLap, controller.signal)
+    api.compare(selectedYear, selectedSession.grandPrix, selectedSession.sessionName, driver, referenceLap, comparedLap, controller.signal)
       .then(setComparison)
       .catch((cause: unknown) => {
         setFailure(cause, controller.signal, setError, 'No se pudo comparar estas vueltas.');
@@ -116,7 +116,7 @@ export function useRaceMindDashboard(): DashboardState {
         if (!controller.signal.aborted) setComparisonLoading(false);
       });
     return () => controller.abort();
-  }, [selectedSession, driver, referenceLap, comparedLap]);
+  }, [selectedSession, selectedYear, driver, referenceLap, comparedLap]);
 
   const chooseDriver = (value: string | null) => {
     setDriver(value);
@@ -126,8 +126,13 @@ export function useRaceMindDashboard(): DashboardState {
     if (value) setLoading(true);
   };
 
-  const chooseSession = (value: string) => {
+  const chooseF1Session = (year: number, value: string) => {
+    if (!catalog) return;
+    const selected = getF1Sessions(catalog).find((item) => item.id === value && item.year === year);
+    if (!selected) return;
     setSelectedSessionId(value);
+    setSelectedYear(year);
+    setSelectedF1Session(selected);
     setLoading(true);
     setError(null);
     setSession(null);
@@ -139,6 +144,8 @@ export function useRaceMindDashboard(): DashboardState {
 
   const resetDashboard = () => {
     setSelectedSessionId('');
+    setSelectedYear(null);
+    setSelectedF1Session(null);
     setSession(null);
     setDriver(null);
     setLaps([]);
@@ -150,8 +157,9 @@ export function useRaceMindDashboard(): DashboardState {
   };
 
   return {
-    sessions,
+    catalog,
     selectedSessionId,
+    selectedYear,
     selectedSession,
     session,
     driver,
@@ -170,8 +178,15 @@ export function useRaceMindDashboard(): DashboardState {
     setError,
     resetDashboard,
     chooseDriver,
-    chooseSession,
+    chooseF1Session,
   };
+}
+
+function getF1Sessions(catalog: TelemetryCatalog) {
+  return catalog.categories
+    .find((category) => category.key === 'cars')?.series
+    .find((series) => series.key === 'f1')?.years
+    .flatMap((year) => year.sessions) ?? [];
 }
 
 function chooseDefaultLaps(
@@ -195,10 +210,10 @@ function areLapsComparable(referenceLap: number, comparedLap: number) {
   return referenceLap > 0 && comparedLap > 0 && referenceLap !== comparedLap;
 }
 
-async function loadSessionDetails(session: SessionSummary, signal: AbortSignal) {
+async function loadSessionDetails(year: number, session: SessionSummary, signal: AbortSignal) {
   const [details, trackCorners] = await Promise.all([
-    api.session(session.grandPrix, session.sessionName, signal),
-    api.corners(session.grandPrix, session.sessionName, signal),
+    api.session(year, session.grandPrix, session.sessionName, signal),
+    api.corners(year, session.grandPrix, session.sessionName, signal),
   ]);
   return { details, trackCorners };
 }

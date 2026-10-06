@@ -4,6 +4,7 @@ import type {
   LapSummary,
   SessionDetails,
   SessionSummary,
+  TelemetryCatalog,
 } from './types';
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5171/api';
@@ -20,13 +21,14 @@ async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
 const segment = (value: string) => encodeURIComponent(value);
 
 export const api = {
-  sessions: (signal?: AbortSignal) => request<SessionSummary[]>('/sessions', signal),
-  session: (grandPrix: string, sessionName: string, signal?: AbortSignal) =>
-    request<SessionDetails>(`/sessions/${segment(grandPrix)}/${segment(sessionName)}`, signal),
-  corners: (grandPrix: string, sessionName: string, signal?: AbortSignal) =>
-    request<CornerSummary[]>(`/sessions/${segment(grandPrix)}/${segment(sessionName)}/corners`, signal),
-  laps: (grandPrix: string, sessionName: string, driver: string, signal?: AbortSignal) =>
-    request<LapSummary[]>(`/sessions/${segment(grandPrix)}/${segment(sessionName)}/drivers/${segment(driver)}/laps`, signal),
-  compare: (grandPrix: string, sessionName: string, driver: string, reference: number, compared: number, signal?: AbortSignal) =>
-    request<LapComparison>(`/sessions/${segment(grandPrix)}/${segment(sessionName)}/drivers/${segment(driver)}/laps/compare?referenceLap=${reference}&comparedLap=${compared}&points=201`, signal),
+  catalog: (signal?: AbortSignal) => request<TelemetryCatalog>('/catalog', signal),
+  sessions: (year: number, signal?: AbortSignal) => request<SessionSummary[]>(`/${year}/cars/f1/sessions`, signal),
+  session: (year: number, grandPrix: string, sessionName: string, signal?: AbortSignal) =>
+    request<SessionDetails>(`/${year}/cars/f1/sessions/${segment(grandPrix)}/${segment(sessionName)}`, signal),
+  corners: (year: number, grandPrix: string, sessionName: string, signal?: AbortSignal) =>
+    request<CornerSummary[]>(`/${year}/cars/f1/sessions/${segment(grandPrix)}/${segment(sessionName)}/corners`, signal),
+  laps: (year: number, grandPrix: string, sessionName: string, driver: string, signal?: AbortSignal) =>
+    request<LapSummary[]>(`/${year}/cars/f1/sessions/${segment(grandPrix)}/${segment(sessionName)}/drivers/${segment(driver)}/laps`, signal),
+  compare: (year: number, grandPrix: string, sessionName: string, driver: string, reference: number, compared: number, signal?: AbortSignal) =>
+    request<LapComparison>(`/${year}/cars/f1/sessions/${segment(grandPrix)}/${segment(sessionName)}/drivers/${segment(driver)}/laps/compare?referenceLap=${reference}&comparedLap=${compared}&points=201`, signal),
 };

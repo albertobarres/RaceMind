@@ -30,19 +30,21 @@ Prefijo: `/api`
 | Método y ruta | Uso | Respuesta para UI |
 |---|---|---|
 | `GET /health` | Estado de API | estado de servicio |
-| `GET /sessions` | Descubrir Grandes Premios/sesiones disponibles | IDs/nombres; conteos pueden ser nulos y no requieren parsear los resúmenes de vuelta |
-| `GET /sessions/{grandPrix}/{sessionName}` | Cabecera de sesión | pilotos, equipos, color, mejor vuelta, curvas y resumen meteorológico |
-| `GET /sessions/{grandPrix}/{sessionName}/corners` | Geometría del trazado | número, distancia y posición X/Y de curvas |
-| `GET /sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps` | Elegir vueltas de un piloto | tiempos, sectores, compuesto, stint, disponibilidad de telemetría y PB |
-| `GET /sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps/{lapNumber}/telemetry` | Cargar muestras bajo demanda | canales de telemetría normalizados a un DTO acotado |
-| `GET /sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps/compare?referenceLap=10&comparedLap=11&points=201` | Comparar dos vueltas del mismo piloto | deltas total/sector y series alineadas por distancia relativa |
+| `GET /catalog` | Árbol de categorías, series, años y datasets disponibles | navegación completa del sidebar |
+| `GET /{year}/cars/f1/sessions` | Descubrir sesiones F1 de un año | IDs/nombres; no lee resúmenes de todos los pilotos |
+| `GET /{year}/cars/f1/sessions/{grandPrix}/{sessionName}` | Cabecera de sesión | pilotos, equipos, color, curvas y resumen meteorológico |
+| `GET /{year}/cars/f1/sessions/{grandPrix}/{sessionName}/corners` | Geometría del trazado | número, distancia y posición X/Y de curvas |
+| `GET /{year}/cars/f1/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps` | Elegir vueltas de un piloto | tiempos, sectores, compuesto, stint, disponibilidad de telemetría y PB |
+| `GET /{year}/cars/f1/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps/{lapNumber}/telemetry` | Cargar muestras bajo demanda | canales de telemetría normalizados a un DTO acotado |
+| `GET /{year}/cars/f1/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps/compare?referenceLap=10&comparedLap=11&points=201` | Comparar dos vueltas del mismo piloto | deltas total/sector y series alineadas por distancia relativa |
 
 Grand Prix y session name son segmentos URL. Por ejemplo:
 
 ```text
-GET http://localhost:5080/api/sessions/Barcelona%20Grand%20Prix/Race
-GET http://localhost:5080/api/sessions/Barcelona%20Grand%20Prix/Race/drivers/VER/laps
-GET http://localhost:5080/api/sessions/Barcelona%20Grand%20Prix/Race/drivers/VER/laps/compare?referenceLap=10&comparedLap=11
+GET http://localhost:5080/api/2026/cars/f1/sessions
+GET http://localhost:5080/api/2026/cars/f1/sessions/Spanish%20Grand%20Prix/Race
+GET http://localhost:5080/api/2026/cars/f1/sessions/Spanish%20Grand%20Prix/Race/drivers/VER/laps
+GET http://localhost:5080/api/2026/cars/f1/sessions/Spanish%20Grand%20Prix/Race/drivers/VER/laps/compare?referenceLap=10&comparedLap=11
 ```
 
 Errores previstos: `404` para sesión/piloto/vuelta inexistente, `400` para parámetros inválidos y `422` si las vueltas cargan pero no pueden compararse por calidad/orden de muestras. El endpoint de telemetría devuelve `404` si no existe o la vuelta no supera el mínimo de muestras.
@@ -51,7 +53,7 @@ Errores previstos: `404` para sesión/piloto/vuelta inexistente, `400` para par�
 
 ### 1. Explorador de sesiones
 
-- Lista/selector de Gran Premio y sesión (Race, Practice, Qualifying, etc.) usando `GET /sessions`; al arrancar no hay evento seleccionado.
+- Árbol de navegación `Coches → F1 → año → Gran Premio → sesión`, alimentado por `GET /catalog`; las sesiones para un año se leen de `/{year}/cars/f1/sessions`.
 - Cards/lista de sesiones con número de pilotos y vueltas como resumen.
 - Mostrar un indicador de carga mientras se construye el catálogo; los conteos desconocidos se presentan como `—` en lugar de disparar una carga masiva de telemetría.
 - Mostrar estado vacío/errores cuando una carpeta no tenga los ficheros esperados.
@@ -113,7 +115,7 @@ El backend permite por defecto el origen `http://localhost:5173` (Vite). Puede c
 3. En otra terminal ejecutar `cd web`, `npm install` y `npm run dev`.
 4. Abrir `http://localhost:5173`.
 
-La UI inicial usa React + TypeScript y gráficos SVG ligeros, sin añadir una dependencia de charting. El selector de evento filtra todos los Grandes Premios disponibles; al abrir uno aparecen sus pilotos, contexto y vueltas. El comparador obtiene del backend 201 puntos interpolados. Se puede apuntar a otra URL de API con `web/.env.local`:
+La UI inicial usa React + TypeScript y gráficos SVG ligeros, sin añadir una dependencia de charting. El usuario expande categoría, modalidad, año y evento. En sesiones F1, al seleccionar el año aparecen Grandes Premios y sesiones; al seleccionar la sesión aparecen pilotos. MotoGP/WorldSBK y Assetto Corsa/ACC/Forza aparecen como modalidades del catálogo; Kawasaki Ninja 400 y los datasets de simulador se presentan como elementos descubiertos, pero sin análisis detallado todavía. El comparador F1 obtiene del backend 201 puntos interpolados. Se puede apuntar a otra URL de API con `web/.env.local`:
 
 ```text
 VITE_API_BASE_URL=http://localhost:5080/api

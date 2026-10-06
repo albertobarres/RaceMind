@@ -7,16 +7,17 @@ namespace RaceMind.Infrastructure;
 
 public sealed class TracingInsightsF1DataProvider(string dataRoot) : IF1DataProvider
 {
-    private readonly string _dataRoot = Path.GetFullPath(dataRoot);
-    private IReadOnlyList<SessionLocation>? _sessions;
+    private readonly string _dataRoot = ResolveF1Root(Path.GetFullPath(dataRoot));
+    private readonly Dictionary<int, IReadOnlyList<SessionLocation>> _sessionsByYear = [];
 
-    public Task<IReadOnlyList<SessionSummary>> GetSessionsAsync(CancellationToken _)
+    public Task<IReadOnlyList<SessionSummary>> GetSessionsAsync(int year, CancellationToken _)
     {
         var result = new List<SessionSummary>();
-        foreach (var location in GetSessionLocations())
+        foreach (var location in GetSessionLocations(year))
         {
             result.Add(new SessionSummary(
-                $"{location.GrandPrix}/{location.SessionName}",
+                year,
+                $"{year}/{location.GrandPrix}/{location.SessionName}",
                 location.GrandPrix,
                 location.SessionName,
                 null,
@@ -30,15 +31,15 @@ public sealed class TracingInsightsF1DataProvider(string dataRoot) : IF1DataProv
         return Task.FromResult(sorted);
     }
 
-    public Task<SessionDetails?> GetSessionAsync(string grandPrix, string sessionName, CancellationToken _)
+    public Task<SessionDetails?> GetSessionAsync(int year, string grandPrix, string sessionName, CancellationToken _)
     {
-        var location = FindSession(grandPrix, sessionName);
-        return Task.FromResult(location is null ? null : ReadSession(location));
+        var location = FindSession(year, grandPrix, sessionName);
+        return Task.FromResult(location is null ? null : ReadSession(year, location));
     }
 
-    public Task<IReadOnlyList<CornerSummary>?> GetCornersAsync(string grandPrix, string sessionName, CancellationToken _)
+    public Task<IReadOnlyList<CornerSummary>?> GetCornersAsync(int year, string grandPrix, string sessionName, CancellationToken _)
     {
-        var location = FindSession(grandPrix, sessionName);
+        var location = FindSession(year, grandPrix, sessionName);
         if (location is null)
         {
             return Task.FromResult<IReadOnlyList<CornerSummary>?>(null);
@@ -67,27 +68,27 @@ public sealed class TracingInsightsF1DataProvider(string dataRoot) : IF1DataProv
         return Task.FromResult<IReadOnlyList<CornerSummary>?>(result);
     }
 
-    public Task<IReadOnlyList<DriverSummary>?> GetDriversAsync(string grandPrix, string sessionName, CancellationToken _)
+    public Task<IReadOnlyList<DriverSummary>?> GetDriversAsync(int year, string grandPrix, string sessionName, CancellationToken _)
     {
-        var location = FindSession(grandPrix, sessionName);
+        var location = FindSession(year, grandPrix, sessionName);
         if (location is null)
         {
             return Task.FromResult<IReadOnlyList<DriverSummary>?>(null);
         }
 
-        var drivers = ReadSession(location)?.Drivers ?? Array.Empty<DriverSummary>();
+        var drivers = ReadSession(year, location)?.Drivers ?? Array.Empty<DriverSummary>();
         return Task.FromResult<IReadOnlyList<DriverSummary>?>(drivers);
     }
 
-    public Task<IReadOnlyList<LapSummary>?> GetLapsAsync(string grandPrix, string sessionName, string driverCode, CancellationToken _)
+    public Task<IReadOnlyList<LapSummary>?> GetLapsAsync(int year, string grandPrix, string sessionName, string driverCode, CancellationToken _)
     {
-        var directory = FindDriverDirectory(grandPrix, sessionName, driverCode);
+        var directory = FindDriverDirectory(year, grandPrix, sessionName, driverCode);
         return Task.FromResult(directory is null ? null : ReadLapSummaries(directory));
     }
 
-    public Task<LapTelemetry?> GetLapTelemetryAsync(string grandPrix, string sessionName, string driverCode, int lapNumber, CancellationToken _)
+    public Task<LapTelemetry?> GetLapTelemetryAsync(int year, string grandPrix, string sessionName, string driverCode, int lapNumber, CancellationToken _)
     {
-        var directory = FindDriverDirectory(grandPrix, sessionName, driverCode);
+        var directory = FindDriverDirectory(year, grandPrix, sessionName, driverCode);
         if (directory is null)
         {
             return Task.FromResult<LapTelemetry?>(null);
@@ -97,21 +98,23 @@ public sealed class TracingInsightsF1DataProvider(string dataRoot) : IF1DataProv
         return Task.FromResult(File.Exists(path) ? ReadLapTelemetry(path, lapNumber, directory) : null);
     }
 
-    private IReadOnlyList<SessionLocation> GetSessionLocations()
+    private IReadOnlyList<SessionLocation> GetSessionLocations(int year)
     {
-        if (_sessions is not null)
+        var path = Path.Combine(_dataRoot, year.ToString(CultureInfo.InvariantCulture));
+
+        if (_sessionsByYear.TryGetValue(year, out var cached))
         {
-            return _sessions;
+            return cached;
         }
 
-        if (!Directory.Exists(_dataRoot))
+        if (!Directory.Exists(path))
         {
-            _sessions = Array.Empty<SessionLocation>();
-            return _sessions;
+            _sessionsByYear[year] = Array.Empty<SessionLocation>();
+            return _sessionsByYear[year];
         }
 
         var result = new List<SessionLocation>();
-        foreach (var grandPrixDirectory in Directory.EnumerateDirectories(_dataRoot))
+        foreach (var grandPrixDirectory in Directory.EnumerateDirectories(path))
         {
             foreach (var sessionDirectory in Directory.EnumerateDirectories(grandPrixDirectory))
             {
@@ -123,18 +126,35 @@ public sealed class TracingInsightsF1DataProvider(string dataRoot) : IF1DataProv
             }
         }
 
-        _sessions = result;
-        return _sessions;
+        _sessionsByYear[year] = result;
+        return result;
     }
 
-    private SessionLocation? FindSession(string grandPrix, string sessionName) =>
-        GetSessionLocations().FirstOrDefault(location =>
+    private static string ResolveF1Root(string dataRoot)
+    {
+        var nestedF1Root = Path.Combine(dataRoot, "Coches", "F1");
+        if (Directory.Exists(nestedF1Root))
+        {
+            return nestedF1Root;
+        }
+
+        if (Path.GetFileName(dataRoot).Equals("F1", StringComparison.OrdinalIgnoreCase))
+        {
+            return dataRoot;
+        }
+
+        var nested = Path.Combine(dataRoot, "Coches", "F1");
+        return Directory.Exists(nested) ? nested : dataRoot;
+    }
+
+    private SessionLocation? FindSession(int year, string grandPrix, string sessionName) =>
+        GetSessionLocations(year).FirstOrDefault(location =>
             string.Equals(location.GrandPrix, grandPrix, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(location.SessionName, sessionName, StringComparison.OrdinalIgnoreCase));
 
-    private string? FindDriverDirectory(string grandPrix, string sessionName, string driverCode)
+    private string? FindDriverDirectory(int year, string grandPrix, string sessionName, string driverCode)
     {
-        var location = FindSession(grandPrix, sessionName);
+        var location = FindSession(year, grandPrix, sessionName);
         if (location is null)
         {
             return null;
@@ -144,7 +164,7 @@ public sealed class TracingInsightsF1DataProvider(string dataRoot) : IF1DataProv
         return File.Exists(Path.Combine(directory, "laptimes.json")) ? directory : null;
     }
 
-    private static SessionDetails? ReadSession(SessionLocation location)
+    private static SessionDetails? ReadSession(int year, SessionLocation location)
     {
         if (!File.Exists(Path.Combine(location.Directory, "session_laptimes.json")))
         {
@@ -166,7 +186,7 @@ public sealed class TracingInsightsF1DataProvider(string dataRoot) : IF1DataProv
                 null, null));
         }
 
-        return new SessionDetails($"{location.GrandPrix}/{location.SessionName}", location.GrandPrix,
+        return new SessionDetails(year, $"{year}/{location.GrandPrix}/{location.SessionName}", location.GrandPrix,
             location.SessionName, drivers.OrderBy(driver => driver.Code, StringComparer.OrdinalIgnoreCase).ToArray(),
             ReadCornerCount(Path.Combine(location.Directory, "corners.json")),
             ReadWeather(Path.Combine(location.Directory, "weather.json")));

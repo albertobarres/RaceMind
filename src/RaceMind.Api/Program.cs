@@ -4,14 +4,16 @@ using RaceMind.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var dataRoot = builder.Configuration["F1DataRoot"];
+var dataRoot = builder.Configuration["TelemetryDataRoot"] ?? builder.Configuration["F1DataRoot"];
 if (string.IsNullOrWhiteSpace(dataRoot))
 {
-    dataRoot = FindF1DataRoot(Directory.GetCurrentDirectory());
+    dataRoot = FindTelemetryDataRoot(Directory.GetCurrentDirectory());
 }
 
 builder.Services.AddSingleton<IF1DataProvider>(_ =>
-    new TracingInsightsF1DataProvider(dataRoot ?? Path.Combine(Directory.GetCurrentDirectory(), "data", "f1")));
+    new TracingInsightsF1DataProvider(dataRoot ?? Path.Combine(Directory.GetCurrentDirectory(), "data")));
+builder.Services.AddSingleton<ITelemetryCatalogProvider>(_ =>
+    new TelemetryCatalogProvider(dataRoot ?? Path.Combine(Directory.GetCurrentDirectory(), "data")));
 builder.Services.AddSingleton<LapComparisonService>();
 builder.Services.AddCors(options => options.AddPolicy("frontend", policy =>
 {
@@ -26,48 +28,51 @@ var api = app.MapGroup("/api").WithTags("RaceMind");
 
 api.MapGet("/health", () => Results.Ok(new { status = "ok", service = "RaceMind.Api" })).WithName("Health");
 
-api.MapGet("/sessions", async (IF1DataProvider provider, CancellationToken cancellationToken) =>
-    Results.Ok(await provider.GetSessionsAsync(cancellationToken))).WithName("GetSessions");
+api.MapGet("/catalog", async (ITelemetryCatalogProvider provider, CancellationToken cancellationToken) =>
+    Results.Ok(await provider.GetCatalogAsync(cancellationToken))).WithName("GetTelemetryCatalog");
 
-api.MapGet("/sessions/{grandPrix}/{sessionName}", async (string grandPrix, string sessionName, IF1DataProvider provider, CancellationToken cancellationToken) =>
+api.MapGet("/{year:int}/cars/f1/sessions", async (int year, IF1DataProvider provider, CancellationToken cancellationToken) =>
+    Results.Ok(await provider.GetSessionsAsync(year, cancellationToken))).WithName("GetSessions");
+
+api.MapGet("/{year:int}/cars/f1/sessions/{grandPrix}/{sessionName}", async (int year, string grandPrix, string sessionName, IF1DataProvider provider, CancellationToken cancellationToken) =>
     {
-        var session = await provider.GetSessionAsync(grandPrix, sessionName, cancellationToken);
+        var session = await provider.GetSessionAsync(year, grandPrix, sessionName, cancellationToken);
         return session is null ? Results.NotFound() : Results.Ok(session);
     })
     .WithName("GetSession");
 
-api.MapGet("/sessions/{grandPrix}/{sessionName}/corners", async (string grandPrix, string sessionName, IF1DataProvider provider, CancellationToken cancellationToken) =>
+api.MapGet("/{year:int}/cars/f1/sessions/{grandPrix}/{sessionName}/corners", async (int year, string grandPrix, string sessionName, IF1DataProvider provider, CancellationToken cancellationToken) =>
     {
-        var corners = await provider.GetCornersAsync(grandPrix, sessionName, cancellationToken);
+        var corners = await provider.GetCornersAsync(year, grandPrix, sessionName, cancellationToken);
         return corners is null ? Results.NotFound() : Results.Ok(corners);
     })
     .WithName("GetSessionCorners");
 
-api.MapGet("/sessions/{grandPrix}/{sessionName}/drivers", async (string grandPrix, string sessionName, IF1DataProvider provider, CancellationToken cancellationToken) =>
+api.MapGet("/{year:int}/cars/f1/sessions/{grandPrix}/{sessionName}/drivers", async (int year, string grandPrix, string sessionName, IF1DataProvider provider, CancellationToken cancellationToken) =>
     {
-        var drivers = await provider.GetDriversAsync(grandPrix, sessionName, cancellationToken);
+        var drivers = await provider.GetDriversAsync(year, grandPrix, sessionName, cancellationToken);
         return drivers is null ? Results.NotFound() : Results.Ok(drivers);
     })
     .WithName("GetSessionDrivers");
 
-api.MapGet("/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps", async (string grandPrix, string sessionName, string driverCode, IF1DataProvider provider, CancellationToken cancellationToken) =>
+api.MapGet("/{year:int}/cars/f1/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps", async (int year, string grandPrix, string sessionName, string driverCode, IF1DataProvider provider, CancellationToken cancellationToken) =>
     {
-        var laps = await provider.GetLapsAsync(grandPrix, sessionName, driverCode, cancellationToken);
+        var laps = await provider.GetLapsAsync(year, grandPrix, sessionName, driverCode, cancellationToken);
         return laps is null ? Results.NotFound() : Results.Ok(laps);
     })
     .WithName("GetDriverLaps");
 
-api.MapGet("/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps/{lapNumber:int}/telemetry", async (string grandPrix, string sessionName, string driverCode, int lapNumber, IF1DataProvider provider, CancellationToken cancellationToken) =>
+api.MapGet("/{year:int}/cars/f1/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps/{lapNumber:int}/telemetry", async (int year, string grandPrix, string sessionName, string driverCode, int lapNumber, IF1DataProvider provider, CancellationToken cancellationToken) =>
     {
-        var lap = await provider.GetLapTelemetryAsync(grandPrix, sessionName, driverCode, lapNumber, cancellationToken);
+        var lap = await provider.GetLapTelemetryAsync(year, grandPrix, sessionName, driverCode, lapNumber, cancellationToken);
         return lap is null
             ? Results.NotFound(new { message = "Lap telemetry was not found or did not pass the minimum quality checks." })
             : Results.Ok(lap);
     })
     .WithName("GetLapTelemetry");
 
-api.MapGet("/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps/compare", 
-    async (string grandPrix, string sessionName, string driverCode, int referenceLap, int comparedLap, int? points, IF1DataProvider provider, 
+api.MapGet("/{year:int}/cars/f1/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps/compare",
+    async (int year, string grandPrix, string sessionName, string driverCode, int referenceLap, int comparedLap, int? points, IF1DataProvider provider,
         LapComparisonService comparisonService, CancellationToken cancellationToken) =>
     {
         if (referenceLap <= 0 || comparedLap <= 0)
@@ -81,8 +86,8 @@ api.MapGet("/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps/compar
             return Results.BadRequest(new { message = "The points parameter must be between 2 and 2001." });
         }
 
-        var reference = await provider.GetLapTelemetryAsync(grandPrix, sessionName, driverCode, referenceLap, cancellationToken);
-        var compared = await provider.GetLapTelemetryAsync(grandPrix, sessionName, driverCode, comparedLap, cancellationToken);
+        var reference = await provider.GetLapTelemetryAsync(year, grandPrix, sessionName, driverCode, referenceLap, cancellationToken);
+        var compared = await provider.GetLapTelemetryAsync(year, grandPrix, sessionName, driverCode, comparedLap, cancellationToken);
         if (reference is null || compared is null)
         {
             return Results.NotFound(new { message = "Both laps must have valid telemetry to compare." });
@@ -101,16 +106,21 @@ api.MapGet("/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps/compar
 
 app.Run();
 
-static string? FindF1DataRoot(string startDirectory)
+static string? FindTelemetryDataRoot(string startDirectory)
 {
     var current = new DirectoryInfo(startDirectory);
     while (current is not null)
     {
-        var candidate = Path.Combine(current.FullName, "Telemetría", "F1");
-        if (Directory.Exists(candidate))
+        var telemetryCandidate = Path.Combine(current.FullName, "Telemetría");
+        if (Directory.Exists(Path.Combine(telemetryCandidate, "Coches")) ||
+            Directory.Exists(Path.Combine(telemetryCandidate, "Simuladores")) ||
+            Directory.Exists(Path.Combine(telemetryCandidate, "Motos")))
         {
-            return candidate;
+            return telemetryCandidate;
         }
+
+        var legacyF1Candidate = Path.Combine(telemetryCandidate, "F1");
+        if (Directory.Exists(legacyF1Candidate)) return legacyF1Candidate;
 
         current = current.Parent;
     }

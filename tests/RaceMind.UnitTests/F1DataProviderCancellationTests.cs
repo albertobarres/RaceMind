@@ -18,10 +18,10 @@ public sealed class F1DataProviderCancellationTests
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
-        var sessions = await provider.GetSessionsAsync(cancellation.Token);
+        var sessions = await provider.GetSessionsAsync(2026, cancellation.Token);
 
         var session = Assert.Single(sessions, item =>
-            item.GrandPrix == "Barcelona Grand Prix" && item.SessionName == "Race");
+            item.GrandPrix == "Spanish Grand Prix" && item.SessionName == "Race");
         Assert.Null(session.DriverCount);
         Assert.Null(session.LapCount);
     }
@@ -31,7 +31,7 @@ public sealed class F1DataProviderCancellationTests
         var current = new DirectoryInfo(Directory.GetCurrentDirectory());
         while (current is not null)
         {
-            var path = Path.Combine(current.FullName, "Telemetría", "F1");
+        var path = Path.Combine(current.FullName, "Telemetría");
             if (Directory.Exists(path))
             {
                 return path;

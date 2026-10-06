@@ -1,9 +1,39 @@
 export interface SessionSummary {
+  year: number;
   id: string;
   grandPrix: string;
   sessionName: string;
   driverCount: number | null;
   lapCount: number | null;
+}
+
+export interface TelemetryCatalog {
+  categories: TelemetryCategory[];
+}
+
+export interface TelemetryCategory {
+  key: string;
+  name: string;
+  series: TelemetrySeries[];
+}
+
+export interface TelemetrySeries {
+  key: string;
+  name: string;
+  years: TelemetryYear[];
+  datasets: TelemetryDataset[];
+}
+
+export interface TelemetryYear {
+  year: number;
+  sessions: SessionSummary[];
+}
+
+export interface TelemetryDataset {
+  key: string;
+  name: string;
+  location: string | null;
+  hasSessionAnalysis: boolean;
 }
 
 export interface DriverSummary {
@@ -26,6 +56,7 @@ export interface WeatherSummary {
 }
 
 export interface SessionDetails {
+  year: number;
   id: string;
   grandPrix: string;
   sessionName: string;

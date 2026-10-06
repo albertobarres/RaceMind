@@ -1,6 +1,13 @@
 # Inventario inicial de telemetría
 
-Inspección exploratoria de los ficheros presentes en `Telemetría/`, fuera de este repositorio. Incluye conteos y lectura de muestras, pero no certifica calibración, unidades ni condiciones de uso.
+Inspección exploratoria de la jerarquía vigente de `Telemetría/`, fuera de este repositorio. Incluye conteos y lectura de muestras, pero no certifica calibración, unidades ni condiciones de uso.
+
+```text
+Telemetría/
+  Coches/F1/{año}/{Gran Premio}/{sesión}/...
+  Motos/{...}
+  Simuladores/{simulador}/{dataset o circuito}/...
+```
 
 ## Conjuntos encontrados
 
@@ -67,6 +74,7 @@ No elegir ACC como fuente inicial de ML hasta entender su ID de sesión, las eti
 La carpeta se amplió después con archivos descargados desde [TracingInsights Data Archives](https://tracinginsights.com/data/). Según esa página, los datos se organizan por temporada y se recopilan de fuentes como Ergast y feeds de F1 a través de FastF1. TracingInsights declara que se pueden usar para investigación, análisis académico y proyectos personales; recomienda atribución si se publica el trabajo. Esta descripción no debe transformarse en una afirmación de que RaceMind está afiliado a F1/FIA/equipos ni de que se trata de una fuente oficial única.
 
 - Inventario local: 18 carpetas de Grandes Premios/pruebas, 56.647 archivos JSON y aproximadamente 10,4 GB. Las carpetas `Pre-Season Testing` y `Pre-Season Testing 1` tienen prácticamente el mismo conteo/tamaño, por lo que hay posible duplicación que conviene verificar. No se deben escanear los payloads enteros al iniciar la API ni versionar el dataset completo en Git.
+- El número anterior corresponde al inventario anterior a dividir el directorio por tipo de vehículo; el inventario actual se describe por la jerarquía y muestras de la tabla superior. No reutilizar esos conteos como si ya se hubieran recalculado para la nueva estructura.
 - Se detectaron 75 carpetas de sesión con `session_laptimes.json` en el primer nivel de cada evento, mostrando que se puede construir un catálogo que enumere sesiones por nombre sin leer los ficheros de telemetría.
 - **Sesión elegida para el arranque:** `Barcelona Grand Prix / Race`. Tiene `session_laptimes.json`, `drivers.json`, `weather.json`, `corners.json`, resúmenes por piloto y telemetría por vuelta. VER tiene 66 filas de vuelta y las 66 correspondientes `*_tel.json`; Barcelona Race contiene 22 directorios de pilotos.
 - `VER/10_tel.json`: 654 puntos alineados en arrays; `time` 0–84,313 s, `distance` termina en 4.630,53, `rel_distance` ~0–0,996, `speed` 92–334, `throttle` 0–100 y `brake` 0–1. La vuelta 10 del resumen tiene 84,313 s; sectores 24,228 / 34,084 / 26,001; compuesto SOFT; stint 1. Esto confirma la correspondencia para esta vuelta y escalas plausibles (la unidad de `speed` sigue pendiente de validación documental).
@@ -74,7 +82,7 @@ La carpeta se amplió después con archivos descargados desde [TracingInsights D
 - `session_laptimes.json` mide ~368 KB y tiene 1.238 elementos por array. Algunos tiempos/sectores son `None` y hay tiempos inusualmente largos; preservar esos nulos y no asumir que cada fila representa una vuelta válida.
 - La comparación VER vuelta 10 vs 11 debe producir delta comparada–referencia de −0,136 s (84,177 − 84,313); la API comprobada devuelve ese valor y puede muestrear 51 puntos.
 
-Los tamaños/perfiles corresponden a la copia local en el momento de la inspección. Las condiciones de redistribución/licencia de datos y las del código fuente deben considerarse por separado; la API consume la ruta local mediante `F1DataRoot`.
+Los tamaños/perfiles corresponden a la copia local en el momento de la inspección. Las condiciones de redistribución/licencia de datos y las del código fuente deben considerarse por separado; la API consume la raíz `Telemetría/` mediante `TelemetryDataRoot`.
 
 ## Próximo perfilado reproducible
 

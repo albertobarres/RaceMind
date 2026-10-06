@@ -14,7 +14,7 @@ Los cálculos y hallazgos deben ser reproducibles. La IA generativa, si se incor
 
 ## Estado actual
 
-La base inicial está creada: API ASP.NET Core en .NET 10 y dashboard React/TypeScript, con exploración de sesiones y comparación de vueltas alineada por distancia relativa. F1/ALO queda como estudio previo y Barcelona Race como sesión de arranque. El caso definitivo de Machine Learning, el proveedor LLM y la persistencia física siguen pendientes.
+La base inicial está creada: API ASP.NET Core en .NET 10 y dashboard React/TypeScript. La barra lateral permite navegar por `Coches → F1 → año → evento → sesión`, `Motos → MotoGP/WorldSBK → datasets` y `Simuladores → fuente → datasets`. Por ahora, el análisis de vueltas está implementado para F1; las otras fuentes aparecen en el catálogo como base para añadir adaptadores futuros.
 
 ## Estructura
 
@@ -54,10 +54,10 @@ Requiere .NET 10 SDK. Desde esta carpeta:
 dotnet run --project src/RaceMind.Api --urls http://localhost:5080
 ```
 
-La API intenta localizar `Telemetría/F1` en una carpeta padre. Si el dataset está en otra ruta, define `F1DataRoot` como variable de entorno/configuración y apunta al directorio que contiene carpetas de Grandes Premios. Ejemplo PowerShell:
+La API intenta localizar `Telemetría` en una carpeta padre. Si el dataset está en otra ruta, define `TelemetryDataRoot` como variable de entorno/configuración y apunta a la raíz con `Coches`, `Motos` y `Simuladores`. El catálogo agrupa fuentes por categoría y modalidad; las rutas analíticas F1 incluyen el año, por ejemplo `/api/2026/cars/f1/sessions`. Ejemplo PowerShell:
 
 ```powershell
-$env:F1DataRoot = "C:\ruta\a\Telemetría\F1"
+$env:TelemetryDataRoot = "C:\ruta\a\Telemetría"
 dotnet run --project src/RaceMind.Api --urls http://localhost:5080
 ```
 

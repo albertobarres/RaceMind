@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
   Activity,
   ArrowDownRight,
   ArrowUpRight,
   ChevronDown,
+  ChevronRight,
   Flag,
   Gauge,
   MapPin,
@@ -15,7 +17,7 @@ import {
 } from 'lucide-react';
 import { SeriesChart, TrackMap } from './Charts';
 import { useRaceMindDashboard } from './useRaceMindDashboard';
-import type { CornerSummary, DriverSummary, LapComparison, LapSummary, SessionDetails, SessionSummary } from './types';
+import type { CornerSummary, DriverSummary, LapComparison, LapSummary, SessionDetails, SessionSummary, TelemetryCatalog, TelemetryDataset, TelemetrySeries, TelemetryYear } from './types';
 
 function formatLapTime(seconds: number | null | undefined) {
   if (seconds == null || !Number.isFinite(seconds)) return '—';
@@ -46,8 +48,9 @@ function compoundClass(compound: string | null) {
 export default function App() {
   const dashboard = useRaceMindDashboard();
   const {
-    sessions,
+    catalog,
     selectedSessionId,
+    selectedYear,
     selectedSession,
     session,
     driver,
@@ -66,25 +69,23 @@ export default function App() {
     setError,
     resetDashboard,
     chooseDriver,
-    chooseSession,
+    chooseF1Session,
   } = dashboard;
 
   const selectedDriver = session?.drivers.find((item) => item.code === driver) ?? null;
   const reference = laps.find((lap) => lap.number === referenceLap) ?? null;
   const compared = laps.find((lap) => lap.number === comparedLap) ?? null;
   const availableLaps = laps.filter((lap) => lap.hasTelemetry);
-  const filteredSessions = filterSessions(sessions, search);
-
   return (
     <div className="app-shell">
       <Sidebar
-        sessions={sessions}
-        filteredSessions={filteredSessions}
+        catalog={catalog}
         selectedSessionId={selectedSessionId}
+        selectedYear={selectedYear}
         loading={loading}
         search={search}
         onSearchChange={setSearch}
-        onChooseSession={chooseSession}
+        onChooseF1Session={chooseF1Session}
         onHome={resetDashboard}
       />
 
@@ -104,7 +105,7 @@ export default function App() {
           referenceLap={referenceLap}
           comparedLap={comparedLap}
           corners={corners}
-          onChooseSession={() => chooseSession(selectedSessionId)}
+          onChooseSession={() => selectedSession && chooseF1Session(selectedSession.year, selectedSession.id)}
           onChooseDriver={chooseDriver}
           onReferenceChange={setReferenceLap}
           onComparedChange={setComparedLap}
@@ -115,18 +116,18 @@ export default function App() {
 }
 
 interface SidebarProps {
-  readonly sessions: SessionSummary[];
-  readonly filteredSessions: SessionSummary[];
+  readonly catalog: TelemetryCatalog | null;
   readonly selectedSessionId: string;
+  readonly selectedYear: number | null;
   readonly loading: boolean;
   readonly search: string;
   readonly onSearchChange: (value: string) => void;
-  readonly onChooseSession: (id: string) => void;
+  readonly onChooseF1Session: (year: number, id: string) => void;
   readonly onHome: () => void;
 }
 
 function Sidebar(props: SidebarProps) {
-  const { sessions, filteredSessions, selectedSessionId, loading, search, onSearchChange, onChooseSession, onHome } = props;
+  const { catalog, selectedSessionId, selectedYear, loading, search, onSearchChange, onChooseF1Session, onHome } = props;
   return (
     <aside className="sidebar">
       <button className="brand brand-button" type="button" aria-label="Volver a RaceMind inicio y deseleccionar sesión" onClick={onHome}>
@@ -139,21 +140,19 @@ function Sidebar(props: SidebarProps) {
       <button className="nav-item disabled" title="Disponible más adelante"><Activity size={17} />Driver profiles <span>SOON</span></button>
 
       <div className="side-separator" />
-      <div className="side-section-label session-label">DATA SESSIONS <span>{sessions.length}</span></div>
+      <div className="side-section-label session-label">TELEMETRY SOURCES</div>
       <label className="search-box">
         <Search size={15} />
         <input value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Buscar evento..." />
       </label>
       <div className="session-list">
-        {loading && sessions.length === 0 && <div className="side-loading"><span className="spinner" />Cargando eventos...</div>}
-        {filteredSessions.map((item) => (
-          <button key={item.id} className={`session-nav ${selectedSessionId === item.id ? 'selected' : ''}`} onClick={() => onChooseSession(item.id)}>
-            <span className="session-nav-icon"><Flag size={15} /></span>
-            <span className="session-nav-text"><strong>{formatGrandPrix(item.grandPrix)}</strong><small>{item.sessionName}</small></span>
-            <span className="session-nav-count">{formatSessionDriverCount(item.driverCount)}</span>
-          </button>
+        {loading && !catalog && <div className="side-loading"><span className="spinner" />Cargando fuentes y sesiones...</div>}
+        {catalog?.categories.map((category) => (
+          <CatalogCategory key={category.key} category={category} search={search} selectedSessionId={selectedSessionId} selectedYear={selectedYear} onChooseF1Session={onChooseF1Session} />
         ))}
-        {!loading && filteredSessions.length === 0 && <div className="empty-side">No hay eventos con ese nombre.</div>}
+        {!loading && catalog?.categories.length === 0 && <div className="empty-side">No hay fuentes configuradas.</div>}
+        {!loading && catalog && catalog.categories.length > 0 && !hasMatchingCatalogItems(catalog, search) &&
+          <div className="empty-side">No hay coincidencias en el catálogo.</div>}
       </div>
 
       <div className="sidebar-bottom">
@@ -162,6 +161,148 @@ function Sidebar(props: SidebarProps) {
       </div>
     </aside>
   );
+}
+
+interface CatalogCategoryProps {
+  readonly category: TelemetryCatalog['categories'][number];
+  readonly search: string;
+  readonly selectedSessionId: string;
+  readonly selectedYear: number | null;
+  readonly onChooseF1Session: (year: number, id: string) => void;
+}
+
+function CatalogCategory(props: CatalogCategoryProps) {
+  const { category, search, selectedSessionId, selectedYear, onChooseF1Session } = props;
+  const [expanded, setExpanded] = useState(category.key === 'cars' || category.key === 'motorcycles' || category.key === 'simulators');
+  const matchingSeries = category.series.filter((series) => seriesMatchesSearch(series, search));
+  return (
+    <div className="catalog-category">
+      <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-category-toggle">
+        {category.name}
+      </TreeToggle>
+      {expanded && <div className="catalog-category-children">
+        {matchingSeries.map((series) => (
+          <CatalogSeries key={series.key} categoryKey={category.key} series={series} search={search} selectedSessionId={selectedSessionId} selectedYear={selectedYear} onChooseF1Session={onChooseF1Session} />
+        ))}
+        {matchingSeries.length === 0 && <div className="catalog-empty">No hay coincidencias.</div>}
+      </div>}
+    </div>
+  );
+}
+
+interface CatalogSeriesProps {
+  readonly categoryKey: string;
+  readonly series: TelemetrySeries;
+  readonly search: string;
+  readonly selectedSessionId: string;
+  readonly selectedYear: number | null;
+  readonly onChooseF1Session: (year: number, id: string) => void;
+}
+
+function CatalogSeries(props: CatalogSeriesProps) {
+  const { categoryKey, series, search, selectedSessionId, selectedYear, onChooseF1Session } = props;
+  const initiallyExpanded = categoryKey === 'cars' && series.key === 'f1';
+  const [expanded, setExpanded] = useState(initiallyExpanded);
+  const visibleYears = series.years.filter((year) => yearMatchesSearch(year, search));
+  const visibleDatasets = series.datasets.filter((dataset) => datasetMatchesSearch(dataset, search));
+  const hasContents = visibleYears.length > 0 || visibleDatasets.length > 0;
+  const isAnalysisAvailable = categoryKey === 'cars' && series.key === 'f1';
+
+  return (
+    <div className="catalog-series">
+      <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-series-toggle">
+        <span>{series.name}</span>
+        {!isAnalysisAvailable && <span className="catalog-soon">PRÓXIMAMENTE</span>}
+      </TreeToggle>
+      {expanded && <div className="catalog-series-children">
+        {visibleYears.map((year) => (
+          <CatalogYear key={year.year} year={year} search={search} selectedSessionId={selectedSessionId} selectedYear={selectedYear} onChooseF1Session={onChooseF1Session} />
+        ))}
+        {visibleDatasets.map((dataset) => <CatalogDataset key={dataset.key} dataset={dataset} enabled={false} />)}
+        {!hasContents && <div className="catalog-empty">Sin datos disponibles todavía.</div>}
+      </div>}
+    </div>
+  );
+}
+
+interface CatalogYearProps {
+  readonly year: TelemetryYear;
+  readonly search: string;
+  readonly selectedSessionId: string;
+  readonly selectedYear: number | null;
+  readonly onChooseF1Session: (year: number, id: string) => void;
+}
+
+function CatalogYear(props: CatalogYearProps) {
+  const { year, search, selectedSessionId, selectedYear, onChooseF1Session } = props;
+  const [expanded, setExpanded] = useState(false);
+  const sessions = year.sessions.filter((session) => sessionMatchesSearch(session, search));
+  return (
+    <div className="catalog-year">
+      <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-year-toggle">{year.year}</TreeToggle>
+      {expanded && <div className="catalog-session-children">
+        {sessions.map((session) => (
+          <button
+            key={session.id}
+            className={`catalog-session ${selectedSessionId === session.id && selectedYear === year.year ? 'selected' : ''}`}
+            onClick={() => onChooseF1Session(year.year, session.id)}
+          >
+            <span className="catalog-session-icon"><Flag size={13} /></span>
+            <span className="catalog-session-text"><strong>{formatGrandPrix(session.grandPrix)}</strong><small>{session.sessionName}</small></span>
+          </button>
+        ))}
+        {sessions.length === 0 && <div className="catalog-empty">No hay sesiones en este año.</div>}
+      </div>}
+    </div>
+  );
+}
+
+function CatalogDataset({ dataset, enabled }: { readonly dataset: TelemetryDataset; readonly enabled: boolean }) {
+  const label = dataset.hasSessionAnalysis ? dataset.name : `${dataset.name} · próximamente`;
+  return (
+    <button className="catalog-dataset" type="button" disabled={!enabled} title={enabled ? undefined : 'La integración de esta fuente se añadirá más adelante'}>
+      <span className="catalog-dataset-dot" />
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function TreeToggle({
+  expanded,
+  onClick,
+  className,
+  children,
+}: {
+  readonly expanded: boolean;
+  readonly onClick: () => void;
+  readonly className: string;
+  readonly children: React.ReactNode;
+}) {
+  const Icon = expanded ? ChevronDown : ChevronRight;
+  return <button className={className} type="button" aria-expanded={expanded} onClick={onClick}><Icon size={14} />{children}</button>;
+}
+
+function seriesMatchesSearch(series: TelemetrySeries, search: string) {
+  if (!search) return true;
+  if (series.name.toLowerCase().includes(search.toLowerCase())) return true;
+  return series.years.some((year) => yearMatchesSearch(year, search)) || series.datasets.some((dataset) => datasetMatchesSearch(dataset, search));
+}
+
+function yearMatchesSearch(year: TelemetryYear, search: string) {
+  return !search || year.year.toString().includes(search) || year.sessions.some((session) => sessionMatchesSearch(session, search));
+}
+
+function sessionMatchesSearch(session: SessionSummary, search: string) {
+  return !search || `${session.grandPrix} ${session.sessionName} ${session.year}`.toLowerCase().includes(search.toLowerCase());
+}
+
+function datasetMatchesSearch(dataset: TelemetryDataset, search: string) {
+  return !search || `${dataset.name} ${dataset.location ?? ''}`.toLowerCase().includes(search.toLowerCase());
+}
+
+function hasMatchingCatalogItems(catalog: TelemetryCatalog, search: string) {
+  if (!search) return true;
+  return catalog.categories.some((category) => category.series.some((series) => seriesMatchesSearch(series, search)));
 }
 
 function Header({ grandPrix }: { readonly grandPrix: string | undefined }) {
@@ -681,15 +822,6 @@ function DeltaStatus({ comparison }: { readonly comparison: LapComparison | null
   return <span><ArrowUpRight size={13} /> SLOWER</span>;
 }
 
-function filterSessions(sessions: SessionSummary[], search: string) {
-  const query = search.toLowerCase();
-  return sessions.filter((item) => `${item.grandPrix} ${item.sessionName}`.toLowerCase().includes(query));
-}
-
 function formatGrandPrix(grandPrix: string) {
   return grandPrix.replace(' Grand Prix', ' GP');
-}
-
-function formatSessionDriverCount(driverCount: number | null) {
-  return driverCount == null ? '—' : driverCount.toString();
 }
