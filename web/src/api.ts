@@ -2,6 +2,9 @@ import type {
   CornerSummary,
   LapComparison,
   LapSummary,
+  MotoGpEventSummary,
+  MotoGpLapRecord,
+  MotoGpSessionDetails,
   SessionDetails,
   SessionSummary,
   TelemetryCatalog,
@@ -22,6 +25,13 @@ const segment = (value: string) => encodeURIComponent(value);
 
 export const api = {
   catalog: (signal?: AbortSignal) => request<TelemetryCatalog>('/catalog', signal),
+  motoGpEvents: (year: number, signal?: AbortSignal) => request<MotoGpEventSummary[]>(`/motorcycles/motogp/${year}/events`, signal),
+  motoGpSession: (year: number, eventCode: string, sessionCode: string, signal?: AbortSignal) =>
+    request<MotoGpSessionDetails>(`/motorcycles/motogp/${year}/events/${segment(eventCode)}/sessions/${segment(sessionCode)}`, signal),
+  motoGpLapRecords: (year: number, eventCode: string, sessionCode: string, rider?: string, signal?: AbortSignal) => {
+    const riderQuery = rider ? `?rider=${segment(rider)}` : '';
+    return request<MotoGpLapRecord[]>(`/motorcycles/motogp/${year}/events/${segment(eventCode)}/sessions/${segment(sessionCode)}/laps${riderQuery}`, signal);
+  },
   sessions: (year: number, signal?: AbortSignal) => request<SessionSummary[]>(`/cars/f1/${year}/sessions`, signal),
   session: (year: number, grandPrix: string, sessionName: string, signal?: AbortSignal) =>
     request<SessionDetails>(`/cars/f1/${year}/sessions/${segment(grandPrix)}/${segment(sessionName)}`, signal),

@@ -16,8 +16,9 @@ import {
   Wind,
 } from 'lucide-react';
 import { SeriesChart, TrackMap } from './Charts';
+import { MotoGpWorkspace } from './MotoGpWorkspace';
 import { useRaceMindDashboard } from './useRaceMindDashboard';
-import type { CornerSummary, DriverSummary, LapComparison, LapSummary, SessionDetails, SessionSummary, TelemetryCatalog, TelemetryDataset, TelemetrySeries, TelemetryYear } from './types';
+import type { CornerSummary, DriverSummary, LapComparison, LapSummary, MotoGpEventSummary, MotoGpLapRecord, MotoGpSessionDetails, MotoGpSessionSummary, SessionDetails, SessionSummary, TelemetryCatalog, TelemetryDataset, TelemetrySeries, TelemetryYear } from './types';
 
 function formatLapTime(seconds: number | null | undefined) {
   if (seconds == null || !Number.isFinite(seconds)) return '—';
@@ -52,6 +53,9 @@ export default function App() {
     selectedSessionId,
     selectedYear,
     selectedSession,
+    selectedMotoGpSession,
+    motoGpEvents,
+    motoGpLapRecords,
     session,
     driver,
     laps,
@@ -70,6 +74,7 @@ export default function App() {
     resetDashboard,
     chooseDriver,
     chooseF1Session,
+    chooseMotoGpSession,
   } = dashboard;
 
   const selectedDriver = session?.drivers.find((item) => item.code === driver) ?? null;
@@ -81,20 +86,25 @@ export default function App() {
       <Sidebar
         catalog={catalog}
         selectedSessionId={selectedSessionId}
+        selectedMotoGpSessionId={selectedMotoGpSession?.session.id ?? null}
         selectedYear={selectedYear}
         loading={loading}
         search={search}
         onSearchChange={setSearch}
         onChooseF1Session={chooseF1Session}
+        onChooseMotoGpSession={chooseMotoGpSession}
+        motoGpEvents={motoGpEvents}
         onHome={resetDashboard}
       />
 
       <main id="top" className="main-content">
-        <Header grandPrix={selectedSession?.grandPrix} />
+        <Header grandPrix={selectedSession?.grandPrix ?? selectedMotoGpSession?.session.eventName} />
         {error && <ErrorBanner message={error} onClose={() => setError(null)} />}
         <SessionWorkspace
           loading={loading}
           session={session}
+          motoGpSession={selectedMotoGpSession}
+          motoGpLapRecords={motoGpLapRecords}
           selectedDriver={selectedDriver}
           driver={driver ?? ''}
           reference={reference}
@@ -118,16 +128,19 @@ export default function App() {
 interface SidebarProps {
   readonly catalog: TelemetryCatalog | null;
   readonly selectedSessionId: string;
+  readonly selectedMotoGpSessionId: string | null;
   readonly selectedYear: number | null;
   readonly loading: boolean;
   readonly search: string;
   readonly onSearchChange: (value: string) => void;
   readonly onChooseF1Session: (year: number, id: string) => void;
+  readonly onChooseMotoGpSession: (year: number, eventCode: string, sessionCode: string) => void;
+  readonly motoGpEvents: MotoGpEventSummary[];
   readonly onHome: () => void;
 }
 
 function Sidebar(props: SidebarProps) {
-  const { catalog, selectedSessionId, selectedYear, loading, search, onSearchChange, onChooseF1Session, onHome } = props;
+  const { catalog, selectedSessionId, selectedMotoGpSessionId, selectedYear, loading, search, onSearchChange, onChooseF1Session, onChooseMotoGpSession, motoGpEvents, onHome } = props;
   return (
     <aside className="sidebar">
       <button className="brand brand-button" type="button" aria-label="Volver a RaceMind inicio y deseleccionar sesión" onClick={onHome}>
@@ -148,7 +161,7 @@ function Sidebar(props: SidebarProps) {
       <div className="session-list">
         {loading && !catalog && <div className="side-loading"><span className="spinner" />Cargando fuentes y sesiones...</div>}
         {catalog?.categories.map((category) => (
-          <CatalogCategory key={category.key} category={category} search={search} selectedSessionId={selectedSessionId} selectedYear={selectedYear} onChooseF1Session={onChooseF1Session} />
+          <CatalogCategory key={category.key} category={category} search={search} selectedSessionId={selectedSessionId} selectedMotoGpSessionId={selectedMotoGpSessionId} selectedYear={selectedYear} onChooseF1Session={onChooseF1Session} onChooseMotoGpSession={onChooseMotoGpSession} motoGpEvents={motoGpEvents} />
         ))}
         {!loading && catalog?.categories.length === 0 && <div className="empty-side">No hay fuentes configuradas.</div>}
         {!loading && catalog && catalog.categories.length > 0 && !hasMatchingCatalogItems(catalog, search) &&
@@ -167,12 +180,15 @@ interface CatalogCategoryProps {
   readonly category: TelemetryCatalog['categories'][number];
   readonly search: string;
   readonly selectedSessionId: string;
+  readonly selectedMotoGpSessionId: string | null;
   readonly selectedYear: number | null;
   readonly onChooseF1Session: (year: number, id: string) => void;
+  readonly onChooseMotoGpSession: (year: number, eventCode: string, sessionCode: string) => void;
+  readonly motoGpEvents: MotoGpEventSummary[];
 }
 
 function CatalogCategory(props: CatalogCategoryProps) {
-  const { category, search, selectedSessionId, selectedYear, onChooseF1Session } = props;
+  const { category, search, selectedSessionId, selectedMotoGpSessionId, selectedYear, onChooseF1Session, onChooseMotoGpSession, motoGpEvents } = props;
   const [expanded, setExpanded] = useState(category.key === 'cars' || category.key === 'motorcycles' || category.key === 'simulators');
   const matchingSeries = category.series.filter((series) => seriesMatchesSearch(series, search));
   return (
@@ -182,7 +198,7 @@ function CatalogCategory(props: CatalogCategoryProps) {
       </TreeToggle>
       {expanded && <div className="catalog-category-children">
         {matchingSeries.map((series) => (
-          <CatalogSeries key={series.key} categoryKey={category.key} series={series} search={search} selectedSessionId={selectedSessionId} selectedYear={selectedYear} onChooseF1Session={onChooseF1Session} />
+          <CatalogSeries key={series.key} categoryKey={category.key} series={series} search={search} selectedSessionId={selectedSessionId} selectedMotoGpSessionId={selectedMotoGpSessionId} selectedYear={selectedYear} onChooseF1Session={onChooseF1Session} onChooseMotoGpSession={onChooseMotoGpSession} motoGpEvents={motoGpEvents} />
         ))}
         {matchingSeries.length === 0 && <div className="catalog-empty">No hay coincidencias.</div>}
       </div>}
@@ -195,18 +211,22 @@ interface CatalogSeriesProps {
   readonly series: TelemetrySeries;
   readonly search: string;
   readonly selectedSessionId: string;
+  readonly selectedMotoGpSessionId: string | null;
   readonly selectedYear: number | null;
   readonly onChooseF1Session: (year: number, id: string) => void;
+  readonly onChooseMotoGpSession: (year: number, eventCode: string, sessionCode: string) => void;
+  readonly motoGpEvents: MotoGpEventSummary[];
 }
 
 function CatalogSeries(props: CatalogSeriesProps) {
-  const { categoryKey, series, search, selectedSessionId, selectedYear, onChooseF1Session } = props;
+  const { categoryKey, series, search, selectedSessionId, selectedMotoGpSessionId, selectedYear, onChooseF1Session, onChooseMotoGpSession, motoGpEvents } = props;
   const initiallyExpanded = categoryKey === 'cars' && series.key === 'f1';
   const [expanded, setExpanded] = useState(initiallyExpanded);
   const visibleYears = series.years.filter((year) => yearMatchesSearch(year, search));
   const visibleDatasets = series.datasets.filter((dataset) => datasetMatchesSearch(dataset, search));
   const hasContents = visibleYears.length > 0 || visibleDatasets.length > 0;
-  const isAnalysisAvailable = categoryKey === 'cars' && series.key === 'f1';
+  const isAnalysisAvailable = (categoryKey === 'cars' && series.key === 'f1') ||
+    (categoryKey === 'motorcycles' && series.key === 'motogp');
 
   return (
     <div className="catalog-series">
@@ -215,9 +235,12 @@ function CatalogSeries(props: CatalogSeriesProps) {
         {!isAnalysisAvailable && <span className="catalog-soon">PRÓXIMAMENTE</span>}
       </TreeToggle>
       {expanded && <div className="catalog-series-children">
-        {visibleYears.map((year) => (
+        {categoryKey !== 'motorcycles' || series.key !== 'motogp' ? visibleYears.map((year) => (
           <CatalogYear key={year.year} year={year} search={search} selectedSessionId={selectedSessionId} selectedYear={selectedYear} onChooseF1Session={onChooseF1Session} />
-        ))}
+        )) : null}
+        {categoryKey === 'motorcycles' && series.key === 'motogp' && (
+          <MotoGpLocalSessions events={motoGpEvents} search={search} selectedSessionId={selectedMotoGpSessionId} onChooseSession={onChooseMotoGpSession} />
+        )}
         {visibleDatasets.map((dataset) => <CatalogDataset key={dataset.key} dataset={dataset} enabled={false} />)}
         {!hasContents && <div className="catalog-empty">Sin datos disponibles todavía.</div>}
       </div>}
@@ -265,6 +288,70 @@ function CatalogDataset({ dataset, enabled }: { readonly dataset: TelemetryDatas
       <span>{label}</span>
     </button>
   );
+}
+
+function MotoGpLocalSessions(props: {
+  readonly events: MotoGpEventSummary[];
+  readonly search: string;
+  readonly selectedSessionId: string | null;
+  readonly onChooseSession: (year: number, eventCode: string, sessionCode: string) => void;
+}) {
+  const { events, search, selectedSessionId, onChooseSession } = props;
+  const matchingEvents = events.filter((event) => motoGpEventMatchesSearch(event, search));
+  const years = [...new Set(matchingEvents.map((event) => event.year))].sort((first, second) => second - first);
+
+  return <div className="catalog-motogp-local">
+    {years.map((year) => <MotoGpYear key={year} year={year} events={matchingEvents.filter((event) => event.year === year)} selectedSessionId={selectedSessionId} onChooseSession={onChooseSession} />)}
+    {years.length === 0 && <div className="catalog-empty">No hay sesiones MotoGP para esta búsqueda.</div>}
+  </div>;
+}
+
+function MotoGpYear({ year, events, selectedSessionId, onChooseSession }: {
+  readonly year: number;
+  readonly events: MotoGpEventSummary[];
+  readonly selectedSessionId: string | null;
+  readonly onChooseSession: (year: number, eventCode: string, sessionCode: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return <div className="catalog-year">
+    <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-year-toggle">{year}</TreeToggle>
+    {expanded && <div className="catalog-session-children">
+      {events.map((event) => <MotoGpEvent key={event.id} event={event} selectedSessionId={selectedSessionId} onChooseSession={onChooseSession} />)}
+    </div>}
+  </div>;
+}
+
+function MotoGpEvent({ event, selectedSessionId, onChooseSession }: {
+  readonly event: MotoGpEventSummary;
+  readonly selectedSessionId: string | null;
+  readonly onChooseSession: (year: number, eventCode: string, sessionCode: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return <div className="catalog-year">
+    <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-year-toggle">{event.grandPrix}</TreeToggle>
+    {expanded && <div className="catalog-session-children">
+      {event.sessions.map((session) => <MotoGpSessionButton key={session.id} year={event.year} eventCode={event.eventCode} session={session} selected={selectedSessionId === session.id} onChoose={onChooseSession} />)}
+    </div>}
+  </div>;
+}
+
+function MotoGpSessionButton({ year, eventCode, session, selected, onChoose }: {
+  readonly year: number;
+  readonly eventCode: string;
+  readonly session: MotoGpSessionSummary;
+  readonly selected: boolean;
+  readonly onChoose: (year: number, eventCode: string, sessionCode: string) => void;
+}) {
+  return <button className={`catalog-session ${selected ? 'selected' : ''}`} onClick={() => onChoose(year, eventCode, session.sessionCode)}>
+    <span className="catalog-session-icon"><Flag size={13} /></span>
+    <span className="catalog-session-text"><strong>{session.sessionName}</strong><small>{session.date ?? 'MotoGP'} · {session.resultCount} pilotos</small></span>
+  </button>;
+}
+
+function motoGpEventMatchesSearch(event: MotoGpEventSummary, search: string) {
+  if (!search) return true;
+  return `${event.grandPrix} ${event.eventCode} ${event.year} ${event.sessions.map((session) => `${session.sessionName} ${session.date ?? ''}`).join(' ')}`
+    .toLowerCase().includes(search.toLowerCase());
 }
 
 function TreeToggle({
@@ -321,6 +408,8 @@ function ErrorBanner({ message, onClose }: { readonly message: string; readonly 
 interface SessionWorkspaceProps {
   readonly loading: boolean;
   readonly session: SessionDetails | null;
+  readonly motoGpSession: MotoGpSessionDetails | null;
+  readonly motoGpLapRecords: MotoGpLapRecord[];
   readonly selectedDriver: DriverSummary | null;
   readonly driver: string;
   readonly reference: LapSummary | null;
@@ -338,8 +427,11 @@ interface SessionWorkspaceProps {
 }
 
 function SessionWorkspace(props: SessionWorkspaceProps) {
-  if (props.loading && !props.session) {
+  if (props.loading && !props.session && !props.motoGpSession) {
     return <div className="loading-screen"><span className="spinner large" /><span><strong>Cargando datos</strong><small>Preparando el catálogo de sesiones de telemetría…</small></span></div>;
+  }
+  if (props.motoGpSession) {
+    return <MotoGpWorkspace details={props.motoGpSession} lapRecords={props.motoGpLapRecords} />;
   }
   if (!props.session) {
     return <SelectionPrompt title="Selecciona un Gran Premio" message="Elige un evento y una sesión en el panel izquierdo para consultar sus condiciones, pilotos y vueltas." />;

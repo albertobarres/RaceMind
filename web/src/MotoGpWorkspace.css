@@ -1,0 +1,579 @@
+.motogp-workspace {
+  max-width: 1600px;
+  padding-bottom: 48px;
+}
+
+.motogp-workspace .page-heading {
+  margin-bottom: 25px;
+}
+
+.motogp-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 22px;
+}
+
+.motogp-metric {
+  position: relative;
+  min-width: 0;
+  min-height: 125px;
+  padding: 17px 18px 15px 58px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid #292e36;
+  border-radius: 7px;
+  background: linear-gradient(145deg, #191d23, #15181d);
+}
+
+.motogp-metric-icon {
+  position: absolute;
+  top: 17px;
+  left: 16px;
+  width: 29px;
+  height: 29px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #345443;
+  border-radius: 6px;
+  color: var(--green);
+  background: #1d3029;
+}
+
+.motogp-metric > small,
+.motogp-compare-controls label,
+.motogp-lap-summary small,
+.motogp-sector-heading small {
+  color: #89939e;
+  font: 500 10px 'DM Mono', monospace;
+  letter-spacing: .08em;
+}
+
+.motogp-metric > strong {
+  overflow: hidden;
+  color: #edf1f4;
+  font: 600 19px 'Space Grotesk', sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.motogp-metric > span:last-child {
+  overflow: hidden;
+  color: #9aa3ad;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.motogp-panel {
+  min-width: 0;
+  margin-bottom: 19px;
+  padding: 20px;
+  border: 1px solid #292e36;
+  border-radius: 7px;
+  background: #171a20;
+}
+
+.motogp-panel-heading {
+  min-height: 31px;
+  margin-bottom: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.motogp-panel-heading > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.motogp-panel-heading h2 {
+  margin: 0;
+  color: #e9edf0;
+  font: 600 18px 'Space Grotesk', sans-serif;
+}
+
+.motogp-panel-heading .section-index {
+  color: var(--green);
+  font: 500 10px 'DM Mono', monospace;
+}
+
+.motogp-panel-heading .muted-label {
+  color: #77828d;
+  font: 500 9px 'DM Mono', monospace;
+  letter-spacing: .08em;
+}
+
+.motogp-compare-panel {
+  padding: 21px;
+  background: radial-gradient(ellipse at 50% -40%, #26332f 0, transparent 65%), #171a20;
+}
+
+.motogp-compare-controls {
+  min-height: 80px;
+  padding: 13px 15px;
+  display: flex;
+  align-items: center;
+  gap: 17px;
+  border: 1px solid #2c323a;
+  border-radius: 6px;
+  background: #14171c;
+}
+
+.motogp-compare-controls label {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 10px auto;
+  align-items: center;
+  gap: 7px 5px;
+  color: #8e99a4;
+}
+
+.motogp-compare-controls label:first-child {
+  min-width: 210px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.motogp-compare-controls select {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 35px;
+  padding: 0 10px;
+  border: 1px solid #343b44;
+  border-radius: 4px;
+  color: #e1e6e9;
+  background: #1b2026;
+  font: 500 12px 'DM Sans', sans-serif;
+}
+
+.motogp-compare-controls label:not(:first-child) select {
+  min-width: 190px;
+}
+
+.motogp-lap-dot,
+.motogp-sector-times i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.motogp-lap-dot.reference,
+.motogp-sector-times i.reference {
+  background: var(--green);
+}
+
+.motogp-lap-dot.compared,
+.motogp-sector-times i.compared {
+  background: var(--orange);
+}
+
+.motogp-compare-vs {
+  align-self: flex-end;
+  padding-bottom: 10px;
+  color: #68737e;
+  font: 500 10px 'DM Mono', monospace;
+}
+
+.motogp-lap-summary {
+  display: grid;
+  grid-template-columns: 1fr minmax(175px, .7fr) 1fr;
+  gap: 12px;
+  margin-top: 13px;
+}
+
+.motogp-lap-summary-time,
+.motogp-lap-delta {
+  min-width: 0;
+  min-height: 95px;
+  padding: 15px 17px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid #2a3038;
+  border-radius: 5px;
+  background: #191d23;
+}
+
+.motogp-lap-summary-time strong {
+  color: #f0f3f4;
+  font: 600 25px 'DM Mono', monospace;
+}
+
+.motogp-lap-summary-time.compared {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.motogp-lap-summary-time.reference small {
+  color: var(--green);
+}
+
+.motogp-lap-summary-time.compared small {
+  color: var(--orange);
+}
+
+.motogp-lap-delta {
+  align-items: center;
+  text-align: center;
+  background: #14171c;
+}
+
+.motogp-lap-delta strong {
+  font: 600 23px 'DM Mono', monospace;
+}
+
+.motogp-lap-delta span,
+.motogp-sector-heading span {
+  font: 500 9px 'DM Mono', monospace;
+  letter-spacing: .06em;
+}
+
+.is-faster .motogp-sector-heading span,
+.motogp-lap-delta.is-faster strong,
+.motogp-lap-delta.is-faster span {
+  color: var(--green);
+}
+
+.is-slower .motogp-sector-heading span,
+.motogp-lap-delta.is-slower strong,
+.motogp-lap-delta.is-slower span {
+  color: var(--orange);
+}
+
+.is-even .motogp-sector-heading span,
+.motogp-lap-delta.is-even strong,
+.motogp-lap-delta.is-even span {
+  color: #abb4bd;
+}
+
+.motogp-sector-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.motogp-sector-card {
+  min-width: 0;
+  padding: 13px 14px 12px;
+  border: 1px solid #2b3139;
+  border-radius: 5px;
+  background: #191d23;
+}
+
+.motogp-sector-heading,
+.motogp-sector-times,
+.motogp-sector-times span {
+  display: flex;
+  align-items: center;
+}
+
+.motogp-sector-heading {
+  justify-content: space-between;
+  gap: 5px;
+}
+
+.motogp-sector-times {
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 12px;
+  color: #d9dfe3;
+  font: 500 12px 'DM Mono', monospace;
+}
+
+.motogp-sector-times span {
+  gap: 6px;
+}
+
+.motogp-sector-track {
+  height: 3px;
+  margin-top: 13px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #292e35;
+}
+
+.motogp-sector-track i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--green) 0 50%, var(--orange) 50% 100%);
+  opacity: .7;
+}
+
+.motogp-data-note {
+  margin: 12px 0 0;
+  color: #78838e;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.motogp-compare-empty {
+  min-height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--green);
+}
+
+.motogp-compare-empty strong,
+.motogp-compare-empty small {
+  display: block;
+}
+
+.motogp-compare-empty strong {
+  color: #dce3e5;
+  font-size: 13px;
+}
+
+.motogp-compare-empty small {
+  margin-top: 4px;
+  color: #88939c;
+  font-size: 11px;
+}
+
+.rider-filter {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #89939e;
+  font: 500 10px 'DM Mono', monospace;
+}
+
+.rider-filter select {
+  max-width: 250px;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid #343b44;
+  border-radius: 4px;
+  color: #dce2e5;
+  background: #1b2026;
+  font: 500 12px 'DM Sans', sans-serif;
+}
+
+.motogp-table-wrap {
+  overflow: auto;
+  border: 1px solid #292e36;
+  border-radius: 5px;
+}
+
+.motogp-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.motogp-table th {
+  height: 39px;
+  padding: 0 13px;
+  border-bottom: 1px solid #30363e;
+  color: #8f9aa4;
+  background: #1c2027;
+  font: 500 9px 'DM Mono', monospace;
+  letter-spacing: .07em;
+}
+
+.motogp-table td {
+  height: 39px;
+  padding: 5px 13px;
+  border-bottom: 1px solid #252a31;
+  color: #c6cdd2;
+  font-size: 12px;
+}
+
+.motogp-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.motogp-table tbody tr:hover td {
+  background: #1d2228;
+}
+
+.motogp-table td strong {
+  color: #eef1f2;
+  font-weight: 600;
+}
+
+.motogp-table td small {
+  margin-left: 8px;
+  color: #818c96;
+  font: 10px 'DM Mono', monospace;
+}
+
+.motogp-table .time-cell {
+  color: var(--green);
+  font-family: 'DM Mono', monospace;
+}
+
+.motogp-table .position-number {
+  display: inline-grid;
+  min-width: 23px;
+  height: 23px;
+  place-items: center;
+  border-radius: 4px;
+  color: #c1c9cf;
+  background: #242a31;
+  font: 500 11px 'DM Mono', monospace;
+}
+
+.motogp-table .position-number.podium {
+  color: #18221e;
+  background: var(--green);
+}
+
+.motogp-status {
+  padding: 4px 7px;
+  border: 1px solid #35443d;
+  border-radius: 3px;
+  color: #a7d6bf;
+  background: #202a25;
+  font: 9px 'DM Mono', monospace;
+}
+
+.lap-record-table {
+  min-width: 1050px;
+}
+
+.lap-record-table td {
+  height: 37px;
+  font-size: 11px;
+}
+
+@media (max-width: 1000px) {
+  .motogp-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .motogp-compare-controls {
+    flex-wrap: wrap;
+  }
+
+  .motogp-compare-controls label:first-child {
+    min-width: 100%;
+  }
+
+  .motogp-compare-controls label:not(:first-child) {
+    flex: 1;
+  }
+
+  .motogp-compare-controls label:not(:first-child) select {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .motogp-workspace .page-heading {
+    gap: 10px;
+  }
+
+  .motogp-overview-grid {
+    gap: 7px;
+  }
+
+  .motogp-metric {
+    min-height: 105px;
+    padding: 13px 10px 12px 45px;
+  }
+
+  .motogp-metric-icon {
+    top: 14px;
+    left: 10px;
+    width: 25px;
+    height: 25px;
+  }
+
+  .motogp-metric > strong {
+    font-size: 15px;
+  }
+
+  .motogp-metric > span:last-child {
+    font-size: 10px;
+  }
+
+  .motogp-panel,
+  .motogp-compare-panel {
+    padding: 13px 10px;
+  }
+
+  .motogp-panel-heading {
+    align-items: flex-start;
+  }
+
+  .motogp-panel-heading h2 {
+    font-size: 15px;
+  }
+
+  .motogp-panel-heading .muted-label {
+    max-width: 44%;
+    font-size: 8px;
+    line-height: 1.5;
+  }
+
+  .motogp-compare-controls {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .motogp-compare-controls label:not(:first-child) {
+    flex: 1 1 calc(50% - 20px);
+  }
+
+  .motogp-compare-vs {
+    padding-bottom: 10px;
+  }
+
+  .motogp-lap-summary {
+    grid-template-columns: 1fr 90px 1fr;
+    gap: 5px;
+  }
+
+  .motogp-lap-summary-time,
+  .motogp-lap-delta {
+    min-height: 77px;
+    padding: 9px 7px;
+  }
+
+  .motogp-lap-summary-time strong,
+  .motogp-lap-delta strong {
+    font-size: 15px;
+  }
+
+  .motogp-lap-summary small,
+  .motogp-lap-delta small,
+  .motogp-lap-delta span {
+    font-size: 7px;
+  }
+
+  .motogp-sector-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .motogp-sector-card {
+    padding: 10px 8px;
+  }
+
+  .motogp-sector-times {
+    font-size: 10px;
+  }
+
+  .rider-filter {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .rider-filter select {
+    max-width: 140px;
+    font-size: 10px;
+  }
+}

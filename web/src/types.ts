@@ -27,6 +27,13 @@ export interface TelemetrySeries {
 export interface TelemetryYear {
   year: number;
   sessions: SessionSummary[];
+  events: TelemetryEvent[];
+}
+
+export interface TelemetryEvent {
+  code: string;
+  name: string;
+  sessions: MotoGpSessionSummary[];
 }
 
 export interface TelemetryDataset {
@@ -34,6 +41,64 @@ export interface TelemetryDataset {
   name: string;
   location: string | null;
   hasSessionAnalysis: boolean;
+}
+
+export interface MotoGpEventSummary {
+  id: string;
+  year: number;
+  eventCode: string;
+  grandPrix: string;
+  sessions: MotoGpSessionSummary[];
+}
+
+export interface MotoGpSessionSummary {
+  id: string;
+  eventCode: string;
+  eventName: string;
+  sessionCode: string;
+  sessionName: string;
+  date: string | null;
+  weather: string | null;
+  resultCount: number;
+  lapRecordCount: number;
+}
+
+export interface MotoGpSessionDetails {
+  session: MotoGpSessionSummary;
+  circuit: string | null;
+  sessionTitle: string | null;
+  results: MotoGpRiderResult[];
+}
+
+export interface MotoGpRiderResult {
+  position: number;
+  riderNumber: number;
+  rider: string;
+  team: string;
+  bike: string;
+  laps: number | null;
+  sessionTime: string | null;
+  gap: string | null;
+  bestLap: string | null;
+  topSpeedKph: number | null;
+  status: string | null;
+}
+
+export interface MotoGpLapRecord {
+  rider: string;
+  riderNumber: number;
+  position: number;
+  lapNumber: number;
+  lapTime: string | null;
+  sector1: string | null;
+  sector2: string | null;
+  sector3: string | null;
+  sector4: string | null;
+  speedKph: number | null;
+  pit: number | null;
+  run: string | null;
+  frontTyre: string | null;
+  rearTyre: string | null;
 }
 
 export interface DriverSummary {

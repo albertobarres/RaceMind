@@ -6,6 +6,7 @@ namespace RaceMind.Infrastructure;
 public sealed class TelemetryCatalogProvider(string dataRoot) : ITelemetryCatalogProvider
 {
     private readonly string _telemetryRoot = ResolveTelemetryRoot(Path.GetFullPath(dataRoot));
+    private readonly IMotoGpDataProvider _motoGpProvider = new MotoGpExcelDataProvider(dataRoot);
 
     public Task<TelemetryCatalog> GetCatalogAsync(CancellationToken cancellationToken)
     {
@@ -44,8 +45,8 @@ public sealed class TelemetryCatalogProvider(string dataRoot) : ITelemetryCatalo
         var motorcycleRoot = Path.Combine(_telemetryRoot, "Motos");
         var motoGpRoot = Path.Combine(motorcycleRoot, "MotoGP");
         var worldSbkRoot = Path.Combine(motorcycleRoot, "WorldSBK");
-        var motoGpYears = BuildYears(motoGpRoot);
-        var motoGpDatasets = BuildDatasets(motoGpRoot);
+        var motoGpYears = BuildMotoGpYears(motoGpRoot);
+        var motoGpDatasets = Directory.Exists(motoGpRoot) ? BuildDatasets(motoGpRoot) : Array.Empty<TelemetryDataset>();
         var worldSbkDatasets = Directory.Exists(worldSbkRoot)
             ? BuildDatasets(worldSbkRoot)
             : Directory.Exists(motorcycleRoot)
@@ -63,6 +64,28 @@ public sealed class TelemetryCatalogProvider(string dataRoot) : ITelemetryCatalo
             new TelemetrySeries("motogp", "MotoGP", motoGpYears, motoGpDatasets),
             new TelemetrySeries("worldsbk", "WorldSBK", Array.Empty<TelemetryYear>(), worldSbkDatasets)
         };
+    }
+
+    private IReadOnlyList<TelemetryYear> BuildMotoGpYears(string root)
+    {
+        if (!Directory.Exists(root))
+        {
+            return Array.Empty<TelemetryYear>();
+        }
+
+        return Directory.EnumerateDirectories(root)
+            .Select(path => (Path: path, Year: ParseYear(Path.GetFileName(path))))
+            .Where(item => item.Year.HasValue)
+            .OrderByDescending(item => item.Year)
+            .Select(item => new TelemetryYear(item.Year!.Value, Array.Empty<SessionSummary>(), ReadMotoGpEvents(item.Year.Value)))
+            .ToArray();
+    }
+
+    private IReadOnlyList<TelemetryEvent> ReadMotoGpEvents(int year)
+    {
+        return _motoGpProvider.GetEventsAsync(year, CancellationToken.None).GetAwaiter().GetResult()
+            .Select(item => new TelemetryEvent(item.EventCode, item.GrandPrix, item.Sessions))
+            .ToArray();
     }
 
     private IReadOnlyList<TelemetrySeries> BuildSimulators()
@@ -172,7 +195,7 @@ public sealed class TelemetryCatalogProvider(string dataRoot) : ITelemetryCatalo
         return new TelemetryYear(year, sessions
             .OrderBy(session => session.GrandPrix, StringComparer.OrdinalIgnoreCase)
             .ThenBy(session => session.SessionName, StringComparer.OrdinalIgnoreCase)
-            .ToArray());
+            .ToArray(), Array.Empty<TelemetryEvent>());
     }
 
     private TelemetryDataset BuildDirectoryDataset(string path)

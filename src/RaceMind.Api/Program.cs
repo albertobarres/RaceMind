@@ -14,6 +14,8 @@ builder.Services.AddSingleton<IF1DataProvider>(_ =>
     new TracingInsightsF1DataProvider(dataRoot ?? Path.Combine(Directory.GetCurrentDirectory(), "data")));
 builder.Services.AddSingleton<ITelemetryCatalogProvider>(_ =>
     new TelemetryCatalogProvider(dataRoot ?? Path.Combine(Directory.GetCurrentDirectory(), "data")));
+builder.Services.AddSingleton<IMotoGpDataProvider>(_ =>
+    new MotoGpExcelDataProvider(dataRoot ?? Path.Combine(Directory.GetCurrentDirectory(), "data")));
 builder.Services.AddSingleton<LapComparisonService>();
 builder.Services.AddCors(options => options.AddPolicy("frontend", policy =>
 {
@@ -103,6 +105,31 @@ api.MapGet("/cars/f1/{year:int}/sessions/{grandPrix}/{sessionName}/drivers/{driv
         }
     })
     .WithName("CompareLaps");
+
+api.MapGet("/motorcycles/motogp/{year:int}/events", async (int year, IMotoGpDataProvider provider, CancellationToken cancellationToken) =>
+    Results.Ok(await provider.GetEventsAsync(year, cancellationToken)))
+    .WithName("GetMotoGpEvents");
+
+api.MapGet("/motorcycles/motogp/{year:int}/events/{eventCode}/sessions/{sessionCode}", async (int year, string eventCode, string sessionCode, IMotoGpDataProvider provider, CancellationToken cancellationToken) =>
+    {
+        var details = await provider.GetSessionDetailsAsync(year, eventCode, sessionCode, cancellationToken);
+        return details is null ? Results.NotFound() : Results.Ok(details);
+    })
+    .WithName("GetMotoGpSession");
+
+api.MapGet("/motorcycles/motogp/{year:int}/events/{eventCode}/sessions/{sessionCode}/laps", async (int year, string eventCode, string sessionCode, string? rider, IMotoGpDataProvider provider, CancellationToken cancellationToken) =>
+    {
+        var records = await provider.GetLapRecordsAsync(year, eventCode, sessionCode, rider, cancellationToken);
+        return records is null ? Results.NotFound() : Results.Ok(records);
+    })
+    .WithName("GetMotoGpLapRecords");
+
+api.MapGet("/motorcycles/motogp/{year:int}/events/{eventCode}/sessions/{sessionCode}/details", async (int year, string eventCode, string sessionCode, IMotoGpDataProvider provider, CancellationToken cancellationToken) =>
+    {
+        var details = await provider.GetSessionDetailsAsync(year, eventCode, sessionCode, cancellationToken);
+        return details is null ? Results.NotFound() : Results.Ok(details);
+    })
+    .WithName("GetMotoGpSessionDetails");
 
 app.Run();
 

@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { api } from './api';
-import type { CornerSummary, LapComparison, LapSummary, SessionDetails, SessionSummary, TelemetryCatalog } from './types';
+import type { CornerSummary, LapComparison, LapSummary, MotoGpEventSummary, MotoGpLapRecord, MotoGpSessionDetails, SessionDetails, SessionSummary, TelemetryCatalog } from './types';
 
 interface DashboardState {
   catalog: TelemetryCatalog | null;
   selectedYear: number | null;
   selectedSessionId: string;
   selectedSession: SessionSummary | null;
+  selectedMotoGpSession: MotoGpSessionDetails | null;
+  motoGpEvents: MotoGpEventSummary[];
+  motoGpLapRecords: MotoGpLapRecord[];
   session: SessionDetails | null;
   driver: string | null;
   laps: LapSummary[];
@@ -25,6 +28,7 @@ interface DashboardState {
   resetDashboard: () => void;
   chooseDriver: (value: string | null) => void;
   chooseF1Session: (year: number, value: string) => void;
+  chooseMotoGpSession: (year: number, eventCode: string, sessionCode: string) => void;
 }
 
 const isAbortError = (cause: unknown) => cause instanceof DOMException && cause.name === 'AbortError';
@@ -37,6 +41,9 @@ export function useRaceMindDashboard(): DashboardState {
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [selectedF1Session, setSelectedF1Session] = useState<SessionSummary | null>(null);
+  const [selectedMotoGpSession, setSelectedMotoGpSession] = useState<MotoGpSessionDetails | null>(null);
+  const [motoGpEvents, setMotoGpEvents] = useState<MotoGpEventSummary[]>([]);
+  const [motoGpLapRecords, setMotoGpLapRecords] = useState<MotoGpLapRecord[]>([]);
   const [session, setSession] = useState<SessionDetails | null>(null);
   const [driver, setDriver] = useState<string | null>(null);
   const [laps, setLaps] = useState<LapSummary[]>([]);
@@ -56,6 +63,13 @@ export function useRaceMindDashboard(): DashboardState {
     api.catalog(controller.signal)
       .then((value) => {
         setCatalog(value);
+        const motoGpYear = value.categories.find((category) => category.key === 'motorcycles')?.series
+          .find((series) => series.key === 'motogp')?.years[0]?.year;
+        if (motoGpYear) {
+          void api.motoGpEvents(motoGpYear, controller.signal)
+            .then(setMotoGpEvents)
+            .catch((cause: unknown) => setFailure(cause, controller.signal, setError, 'No se pudo cargar el calendario MotoGP.'));
+        }
       })
       .catch((cause: unknown) => setFailure(cause, controller.signal, setError, 'No se pudo conectar con RaceMind API.'))
       .finally(() => {
@@ -133,6 +147,8 @@ export function useRaceMindDashboard(): DashboardState {
     setSelectedSessionId(value);
     setSelectedYear(year);
     setSelectedF1Session(selected);
+    setSelectedMotoGpSession(null);
+    setMotoGpLapRecords([]);
     setLoading(true);
     setError(null);
     setSession(null);
@@ -142,10 +158,39 @@ export function useRaceMindDashboard(): DashboardState {
     setComparison(null);
   };
 
+  const chooseMotoGpSession = (year: number, eventCode: string, sessionCode: string) => {
+    const controller = new AbortController();
+    setSelectedSessionId(`motogp/${year}/${eventCode}/${sessionCode}`);
+    setSelectedYear(year);
+    setSelectedF1Session(null);
+    setSelectedMotoGpSession(null);
+    setMotoGpLapRecords([]);
+    setDriver(null);
+    setComparison(null);
+    setLoading(true);
+    setError(null);
+
+    Promise.all([
+      api.motoGpSession(year, eventCode, sessionCode, controller.signal),
+      api.motoGpLapRecords(year, eventCode, sessionCode, undefined, controller.signal),
+    ])
+      .then(([details, records]) => {
+        setSelectedMotoGpSession(details);
+        setMotoGpLapRecords(records);
+        setLoading(false);
+      })
+      .catch((cause: unknown) => {
+        setFailure(cause, controller.signal, setError, 'No se pudieron cargar los datos de MotoGP.');
+        if (!controller.signal.aborted) setLoading(false);
+      });
+  };
+
   const resetDashboard = () => {
     setSelectedSessionId('');
     setSelectedYear(null);
     setSelectedF1Session(null);
+    setSelectedMotoGpSession(null);
+    setMotoGpLapRecords([]);
     setSession(null);
     setDriver(null);
     setLaps([]);
@@ -161,6 +206,9 @@ export function useRaceMindDashboard(): DashboardState {
     selectedSessionId,
     selectedYear,
     selectedSession,
+    selectedMotoGpSession,
+    motoGpEvents,
+    motoGpLapRecords,
     session,
     driver,
     laps,
@@ -179,6 +227,7 @@ export function useRaceMindDashboard(): DashboardState {
     resetDashboard,
     chooseDriver,
     chooseF1Session,
+    chooseMotoGpSession,
   };
 }
 

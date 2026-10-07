@@ -20,7 +20,13 @@ public sealed record TelemetrySeries(
 
 public sealed record TelemetryYear(
     int Year,
-    IReadOnlyList<SessionSummary> Sessions);
+    IReadOnlyList<SessionSummary> Sessions,
+    IReadOnlyList<TelemetryEvent> Events);
+
+public sealed record TelemetryEvent(
+    string Code,
+    string Name,
+    IReadOnlyList<MotoGpSessionSummary> Sessions);
 
 public sealed record TelemetryDataset(
     string Key,
@@ -53,4 +59,77 @@ public interface IF1DataProvider
 public interface ITelemetryCatalogProvider
 {
     Task<TelemetryCatalog> GetCatalogAsync(CancellationToken cancellationToken);
+}
+
+public sealed record MotoGpEventSummary(
+    string Id,
+    int Year,
+    string EventCode,
+    string GrandPrix,
+    IReadOnlyList<MotoGpSessionSummary> Sessions);
+
+public sealed record MotoGpSessionSummary(
+    string Id,
+    string EventCode,
+    string EventName,
+    string SessionCode,
+    string SessionName,
+    string? Date,
+    string? Weather,
+    int ResultCount,
+    int LapRecordCount);
+
+public sealed record MotoGpSessionDetails(
+    MotoGpSessionSummary Session,
+    string? Circuit,
+    string? SessionTitle,
+    IReadOnlyList<MotoGpRiderResult> Results);
+
+public sealed record MotoGpRiderResult(
+    int Position,
+    int RiderNumber,
+    string Rider,
+    string Team,
+    string Bike,
+    int? Laps,
+    string? SessionTime,
+    string? Gap,
+    string? BestLap,
+    double? TopSpeedKph,
+    string? Status);
+
+public sealed record MotoGpLapRecord(
+    string Rider,
+    int RiderNumber,
+    int Position,
+    int LapNumber,
+    string? LapTime,
+    string? Sector1,
+    string? Sector2,
+    string? Sector3,
+    string? Sector4,
+    double? SpeedKph,
+    int? Pit,
+    string? Run,
+    string? FrontTyre,
+    string? RearTyre);
+
+public sealed record MotoGpRiderSummary(
+    string Rider,
+    int RiderNumber,
+    string Team,
+    string Bike,
+    int LapCount,
+    string? BestLap,
+    double? TopSpeedKph);
+
+public sealed record MotoGpSessionData(
+    IReadOnlyList<MotoGpRiderResult> Results,
+    IReadOnlyList<MotoGpLapRecord> LapRecords);
+
+public interface IMotoGpDataProvider
+{
+    Task<IReadOnlyList<MotoGpEventSummary>> GetEventsAsync(int year, CancellationToken cancellationToken);
+    Task<MotoGpSessionDetails?> GetSessionDetailsAsync(int year, string eventCode, string sessionCode, CancellationToken cancellationToken);
+    Task<IReadOnlyList<MotoGpLapRecord>?> GetLapRecordsAsync(int year, string eventCode, string sessionCode, string? rider, CancellationToken cancellationToken);
 }

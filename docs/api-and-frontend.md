@@ -37,6 +37,9 @@ Prefijo: `/api`
 | `GET /{year}/cars/f1/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps` | Elegir vueltas de un piloto | tiempos, sectores, compuesto, stint, disponibilidad de telemetría y PB |
 | `GET /{year}/cars/f1/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps/{lapNumber}/telemetry` | Cargar muestras bajo demanda | canales de telemetría normalizados a un DTO acotado |
 | `GET /{year}/cars/f1/sessions/{grandPrix}/{sessionName}/drivers/{driverCode}/laps/compare?referenceLap=10&comparedLap=11&points=201` | Comparar dos vueltas del mismo piloto | deltas total/sector y series alineadas por distancia relativa |
+| `GET /motorcycles/motogp/{year}/events` | Calendario MotoGP y sesiones del año | evento, hojas Results/Laps, fecha, condiciones y conteo de filas |
+| `GET /motorcycles/motogp/{year}/events/{eventCode}/sessions/{sessionCode}/details` | Clasificación de una sesión MotoGP | piloto, equipo, moto, posición, vueltas, mejor vuelta y velocidad punta |
+| `GET /motorcycles/motogp/{year}/events/{eventCode}/sessions/{sessionCode}/laps?rider={nameOrNumber}` | Análisis de vueltas | una fila por vuelta, cuatro sectores, velocidad, pit/run y neumáticos delantero/trasero |
 
 Grand Prix y session name son segmentos URL. Por ejemplo:
 
@@ -100,6 +103,10 @@ Esbozo inicial de distribución de la pantalla:
 
 Presentar hallazgos calculados y validados, después incorporar ML/LLM. El informe no debería calcular de nuevo la comparación ni atribuir causalidad que los datos no acreditan.
 
+### Vista MotoGP
+
+Los XLSX MotoGP ofrecen tablas agregadas por sesión y vuelta, no señales temporales de telemetría continua. Su pantalla muestra una clasificación, métricas superiores de sesión y análisis de vueltas por piloto con los cuatro sectores, velocidad, pit, run y neumáticos. No dibuja gráficos temporales ni aplica la comparación F1 a estos registros.
+
 ## Contrato para gráfica de comparación
 
 La respuesta de comparación es una serie de puntos uniformes en `relativeDistance` de 0 a 1. Cada punto contiene tiempos, delta temporal, velocidades, acelerador y freno en ambas vueltas. La interpolación es lineal entre muestras vecinas tras ordenar por `rel_distance`; los extremos que no cubre exactamente el rango fuente quedan limitados a la primera/última muestra.
@@ -115,7 +122,7 @@ El backend permite por defecto el origen `http://localhost:5173` (Vite). Puede c
 3. En otra terminal ejecutar `cd web`, `npm install` y `npm run dev`.
 4. Abrir `http://localhost:5173`.
 
-La UI inicial usa React + TypeScript y gráficos SVG ligeros, sin añadir una dependencia de charting. El usuario expande categoría, modalidad, año y evento. En sesiones F1, al seleccionar el año aparecen Grandes Premios y sesiones; al seleccionar la sesión aparecen pilotos. MotoGP/WorldSBK y Assetto Corsa/ACC/Forza aparecen como modalidades del catálogo; Kawasaki Ninja 400 y los datasets de simulador se presentan como elementos descubiertos, pero sin análisis detallado todavía. El comparador F1 obtiene del backend 201 puntos interpolados. Se puede apuntar a otra URL de API con `web/.env.local`:
+La UI inicial usa React + TypeScript y gráficos SVG ligeros, sin añadir una dependencia de charting. El usuario expande categoría, modalidad, año y evento. En sesiones F1, al seleccionar la sesión aparecen pilotos y comparación de telemetría. MotoGP carga calendario, clasificación y tabla agregada de vueltas desde XLSX; las llamadas a API son independientes del proveedor F1. WorldSBK/Kawasaki y los simuladores aparecen como fuentes futuras hasta implementar sus adaptadores. El comparador F1 obtiene del backend 201 puntos interpolados. Se puede apuntar a otra URL de API con `web/.env.local`:
 
 ```text
 VITE_API_BASE_URL=http://localhost:5080/api
