@@ -15,13 +15,18 @@ public sealed class TracingInsightsF1DataProvider(string dataRoot) : IF1DataProv
         var result = new List<SessionSummary>();
         foreach (var location in GetSessionLocations(year))
         {
-            result.Add(new SessionSummary(
+            var details = ReadSession(year, location);
+
+            if (details is not null)
+            {
+                result.Add(new SessionSummary(
                 year,
                 $"{year}/{location.GrandPrix}/{location.SessionName}",
                 location.GrandPrix,
                 location.SessionName,
-                null,
-                null));
+                details.Drivers.Count,
+                details.Drivers.Sum(driver => driver.LapCount)));
+            }
         }
 
         IReadOnlyList<SessionSummary> sorted = result
@@ -181,9 +186,12 @@ public sealed class TracingInsightsF1DataProvider(string dataRoot) : IF1DataProv
             }
 
             var code = Path.GetFileName(directory);
+            var laps = ReadLapSummaries(directory);
             driverMetadata.TryGetValue(code, out var metadata);
+            var bestLap = laps.Where(lap => lap.LapTimeSeconds is > 0)
+                .Select(lap => lap.LapTimeSeconds!.Value).DefaultIfEmpty().Min();
             drivers.Add(new DriverSummary(code, metadata?.FullName, metadata?.Team, metadata?.TeamColour,
-                null, null));
+                laps.Count, bestLap > 0 ? bestLap : null));
         }
 
         return new SessionDetails(year, $"{year}/{location.GrandPrix}/{location.SessionName}", location.GrandPrix,
