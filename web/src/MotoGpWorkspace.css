@@ -108,6 +108,304 @@
   letter-spacing: .08em;
 }
 
+.motogp-panel-heading .muted-label svg {
+  margin-right: 5px;
+  vertical-align: -2px;
+  color: var(--green);
+}
+
+.motogp-analytics {
+  padding: 21px;
+}
+
+.motogp-analytics-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(390px, .9fr);
+  gap: 12px;
+}
+
+.motogp-chart-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #2a3038;
+  border-radius: 6px;
+  background: #14171c;
+}
+
+.motogp-chart-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.motogp-chart-heading h3 {
+  margin: 0;
+  color: #e8edf0;
+  font: 600 15px 'Space Grotesk', sans-serif;
+}
+
+.motogp-chart-heading span,
+.motogp-chart-heading > small {
+  display: block;
+  margin-top: 4px;
+  color: #7f8994;
+  font-size: 10px;
+}
+
+.motogp-chart-heading > small {
+  margin-top: 2px;
+  white-space: nowrap;
+  font: 500 9px 'DM Mono', monospace;
+  letter-spacing: .07em;
+}
+
+.motogp-rider-legend {
+  min-height: 40px;
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.motogp-rider-chip {
+  min-height: 25px;
+  padding: 0 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #2b3139;
+  border-radius: 4px;
+  color: #747f8a;
+  background: #191d23;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.motogp-rider-chip > i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #434b55;
+}
+
+.motogp-rider-chip.selected {
+  border-color: color-mix(in srgb, var(--rider-color) 50%, #2b3139);
+  color: #dce2e6;
+}
+
+.motogp-rider-chip.selected > i {
+  background: var(--rider-color);
+}
+
+.motogp-rider-chip small {
+  color: #86919b;
+  font: 9px 'DM Mono', monospace;
+}
+
+.motogp-svg-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.motogp-pace-chart {
+  display: block;
+  width: 100%;
+  min-width: 490px;
+  overflow: visible;
+}
+
+.motogp-chart-gridline {
+  stroke: #2a3038;
+  stroke-width: 1;
+}
+
+.motogp-chart-gridline.vertical {
+  stroke-dasharray: 2 5;
+  opacity: .7;
+}
+
+.motogp-chart-axis {
+  fill: #7c8792;
+  font: 10px 'DM Mono', monospace;
+}
+
+.motogp-chart-axis-title {
+  fill: #7c8792;
+  font: 9px 'DM Mono', monospace;
+  letter-spacing: .1em;
+}
+
+.motogp-chart-empty {
+  color: #77828c;
+  font-size: 11px;
+}
+
+.motogp-chart-empty.large {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.motogp-heatmap-scroll {
+  margin-top: 16px;
+  overflow-x: auto;
+}
+
+.motogp-heatmap-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.motogp-heatmap-scroll th {
+  height: 31px;
+  border-bottom: 1px solid #2b3139;
+  color: #7f8a95;
+  font: 500 9px 'DM Mono', monospace;
+  letter-spacing: .06em;
+}
+
+.motogp-heatmap-scroll th:first-child,
+.motogp-heatmap-scroll td:first-child {
+  text-align: left;
+}
+
+.motogp-heatmap-scroll td {
+  height: 33px;
+  padding: 3px 5px;
+  border-bottom: 1px solid #242a31;
+  color: #d5dce1;
+  font: 10px 'DM Mono', monospace;
+}
+
+.motogp-heatmap-scroll td strong,
+.motogp-heatmap-scroll td small {
+  display: block;
+}
+
+.motogp-heatmap-scroll td strong {
+  max-width: 105px;
+  overflow: hidden;
+  color: #dfe5e8;
+  font: 500 10px 'DM Sans', sans-serif;
+  text-overflow: ellipsis;
+}
+
+.motogp-heatmap-scroll td small {
+  margin-top: 1px;
+  color: #7e8994;
+  font: 9px 'DM Mono', monospace;
+}
+
+.heatmap-lap-time {
+  color: var(--green) !important;
+}
+
+.motogp-heat-cell {
+  display: inline-block;
+  min-width: 43px;
+  padding: 4px 3px;
+  border-radius: 3px;
+}
+
+.motogp-heat-cell.sector-best,
+.motogp-heat-legend i.sector-best {
+  color: #9ae7c7;
+  background: #246044;
+}
+
+.motogp-heat-cell.sector-close,
+.motogp-heat-legend i.sector-close {
+  color: #f0cb7a;
+  background: #5a4727;
+}
+
+.motogp-heat-cell.sector-behind,
+.motogp-heat-legend i.sector-behind {
+  color: #e9a48e;
+  background: #59352f;
+}
+
+.motogp-heat-cell.no-sector-time {
+  color: #707b85;
+  background: #242930;
+}
+
+.motogp-heat-legend {
+  margin-top: 13px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px 13px;
+  color: #7f8993;
+  font-size: 9px;
+}
+
+.motogp-heat-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.motogp-heat-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.motogp-details {
+  margin-bottom: 10px;
+  border: 1px solid #292e36;
+  border-radius: 6px;
+  background: #171a20;
+}
+
+.motogp-details > summary {
+  min-height: 55px;
+  padding: 0 17px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #dce2e6;
+  list-style: none;
+  cursor: pointer;
+}
+
+.motogp-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.motogp-details > summary::after {
+  content: '+';
+  color: var(--green);
+  font: 18px 'DM Mono', monospace;
+}
+
+.motogp-details[open] > summary::after {
+  content: '−';
+}
+
+.motogp-details > summary > span {
+  font: 600 14px 'Space Grotesk', sans-serif;
+}
+
+.motogp-details > summary > small {
+  margin-left: auto;
+  color: #7c8792;
+  font: 10px 'DM Mono', monospace;
+}
+
+.motogp-details .motogp-panel {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid #292e36;
+  border-radius: 0 0 6px 6px;
+}
+
 .motogp-compare-panel {
   padding: 21px;
   background: radial-gradient(ellipse at 50% -40%, #26332f 0, transparent 65%), #171a20;
@@ -449,6 +747,10 @@
 }
 
 @media (max-width: 1000px) {
+  .motogp-analytics-grid {
+    grid-template-columns: 1fr;
+  }
+
   .motogp-overview-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -502,6 +804,23 @@
   .motogp-panel,
   .motogp-compare-panel {
     padding: 13px 10px;
+  }
+
+  .motogp-chart-card {
+    padding: 12px 9px;
+  }
+
+  .motogp-details > summary {
+    min-height: 50px;
+    padding-inline: 11px;
+  }
+
+  .motogp-details > summary > span {
+    font-size: 12px;
+  }
+
+  .motogp-details > summary > small {
+    font-size: 8px;
   }
 
   .motogp-panel-heading {

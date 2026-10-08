@@ -10,7 +10,6 @@ import {
   Gauge,
   MapPin,
   Radio,
-  RefreshCw,
   Search,
   Timer,
   Wind,
@@ -115,7 +114,6 @@ export default function App() {
           referenceLap={referenceLap}
           comparedLap={comparedLap}
           corners={corners}
-          onChooseSession={() => selectedSession && chooseF1Session(selectedSession.year, selectedSession.id)}
           onChooseDriver={chooseDriver}
           onReferenceChange={setReferenceLap}
           onComparedChange={setComparedLap}
@@ -170,7 +168,7 @@ function Sidebar(props: SidebarProps) {
 
       <div className="sidebar-bottom">
         <div className="source-status"><span className="status-dot" /><span><strong>DATA SOURCE</strong><small>TracingInsights · local archive</small></span></div>
-        <div className="profile-chip"><div className="avatar">AB</div><span><strong>Alberto Barres</strong><small>Motorsport analyst</small></span><ChevronDown size={15} /></div>
+        <div className="profile-chip" title="Alberto Barres · Motorsport analyst"><div className="avatar">AB</div><span><strong>Alberto Barres</strong><small>Motorsport analyst</small></span><ChevronDown size={15} /></div>
       </div>
     </aside>
   );
@@ -193,7 +191,7 @@ function CatalogCategory(props: CatalogCategoryProps) {
   const matchingSeries = category.series.filter((series) => seriesMatchesSearch(series, search));
   return (
     <div className="catalog-category">
-      <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-category-toggle">
+      <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-category-toggle" title={category.name}>
         {category.name}
       </TreeToggle>
       {expanded && <div className="catalog-category-children">
@@ -220,8 +218,7 @@ interface CatalogSeriesProps {
 
 function CatalogSeries(props: CatalogSeriesProps) {
   const { categoryKey, series, search, selectedSessionId, selectedMotoGpSessionId, selectedYear, onChooseF1Session, onChooseMotoGpSession, motoGpEvents } = props;
-  const initiallyExpanded = categoryKey === 'cars' && series.key === 'f1';
-  const [expanded, setExpanded] = useState(initiallyExpanded);
+  const [expanded, setExpanded] = useState(false);
   const visibleYears = series.years.filter((year) => yearMatchesSearch(year, search));
   const visibleDatasets = series.datasets.filter((dataset) => datasetMatchesSearch(dataset, search));
   const hasContents = visibleYears.length > 0 || visibleDatasets.length > 0;
@@ -230,7 +227,7 @@ function CatalogSeries(props: CatalogSeriesProps) {
 
   return (
     <div className="catalog-series">
-      <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-series-toggle">
+      <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-series-toggle" title={series.name}>
         <span>{series.name}</span>
         {!isAnalysisAvailable && <span className="catalog-soon">PRÓXIMAMENTE</span>}
       </TreeToggle>
@@ -262,12 +259,13 @@ function CatalogYear(props: CatalogYearProps) {
   const sessions = year.sessions.filter((session) => sessionMatchesSearch(session, search));
   return (
     <div className="catalog-year">
-      <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-year-toggle">{year.year}</TreeToggle>
+      <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-year-toggle" title={year.year.toString()}>{year.year}</TreeToggle>
       {expanded && <div className="catalog-session-children">
         {sessions.map((session) => (
           <button
             key={session.id}
             className={`catalog-session ${selectedSessionId === session.id && selectedYear === year.year ? 'selected' : ''}`}
+            title={`${formatGrandPrix(session.grandPrix)} · ${session.sessionName}`}
             onClick={() => onChooseF1Session(year.year, session.id)}
           >
             <span className="catalog-session-icon"><Flag size={13} /></span>
@@ -283,7 +281,7 @@ function CatalogYear(props: CatalogYearProps) {
 function CatalogDataset({ dataset, enabled }: { readonly dataset: TelemetryDataset; readonly enabled: boolean }) {
   const label = dataset.hasSessionAnalysis ? dataset.name : `${dataset.name} · próximamente`;
   return (
-    <button className="catalog-dataset" type="button" disabled={!enabled} title={enabled ? undefined : 'La integración de esta fuente se añadirá más adelante'}>
+    <button className="catalog-dataset" type="button" disabled={!enabled} title={enabled ? dataset.name : `${dataset.name} · La integración de esta fuente se añadirá más adelante`}>
       <span className="catalog-dataset-dot" />
       <span>{label}</span>
     </button>
@@ -314,7 +312,7 @@ function MotoGpYear({ year, events, selectedSessionId, onChooseSession }: {
 }) {
   const [expanded, setExpanded] = useState(false);
   return <div className="catalog-year">
-    <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-year-toggle">{year}</TreeToggle>
+    <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-year-toggle" title={year.toString()}>{year}</TreeToggle>
     {expanded && <div className="catalog-session-children">
       {events.map((event) => <MotoGpEvent key={event.id} event={event} selectedSessionId={selectedSessionId} onChooseSession={onChooseSession} />)}
     </div>}
@@ -328,7 +326,7 @@ function MotoGpEvent({ event, selectedSessionId, onChooseSession }: {
 }) {
   const [expanded, setExpanded] = useState(false);
   return <div className="catalog-year">
-    <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-year-toggle">{event.grandPrix}</TreeToggle>
+    <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-year-toggle" title={event.grandPrix}>{event.grandPrix}</TreeToggle>
     {expanded && <div className="catalog-session-children">
       {event.sessions.map((session) => <MotoGpSessionButton key={session.id} year={event.year} eventCode={event.eventCode} session={session} selected={selectedSessionId === session.id} onChoose={onChooseSession} />)}
     </div>}
@@ -342,7 +340,7 @@ function MotoGpSessionButton({ year, eventCode, session, selected, onChoose }: {
   readonly selected: boolean;
   readonly onChoose: (year: number, eventCode: string, sessionCode: string) => void;
 }) {
-  return <button className={`catalog-session ${selected ? 'selected' : ''}`} onClick={() => onChoose(year, eventCode, session.sessionCode)}>
+  return <button className={`catalog-session ${selected ? 'selected' : ''}`} title={`${session.sessionName} · ${session.date ?? 'MotoGP'} · ${session.resultCount} pilotos`} onClick={() => onChoose(year, eventCode, session.sessionCode)}>
     <span className="catalog-session-icon"><Flag size={13} /></span>
     <span className="catalog-session-text"><strong>{session.sessionName}</strong><small>{session.date ?? 'MotoGP'} · {session.resultCount} pilotos</small></span>
   </button>;
@@ -358,15 +356,17 @@ function TreeToggle({
   expanded,
   onClick,
   className,
+  title,
   children,
 }: {
   readonly expanded: boolean;
   readonly onClick: () => void;
   readonly className: string;
+  readonly title?: string;
   readonly children: React.ReactNode;
 }) {
   const Icon = expanded ? ChevronDown : ChevronRight;
-  return <button className={className} type="button" aria-expanded={expanded} onClick={onClick}><Icon size={14} />{children}</button>;
+  return <button className={className} type="button" title={title} aria-expanded={expanded} onClick={onClick}><Icon size={14} />{children}</button>;
 }
 
 function seriesMatchesSearch(series: TelemetrySeries, search: string) {
@@ -395,7 +395,7 @@ function hasMatchingCatalogItems(catalog: TelemetryCatalog, search: string) {
 function Header({ grandPrix }: { readonly grandPrix: string | undefined }) {
   return (
     <header className="topbar">
-      <div className="breadcrumbs"><span>Analysis</span><span className="crumb-slash">/</span><strong>{grandPrix ?? 'Selecciona un evento'}</strong></div>
+      <div className="breadcrumbs" title={grandPrix ?? 'Selecciona un evento'}><span>Analysis</span><span className="crumb-slash">/</span><strong>{grandPrix ?? 'Selecciona un evento'}</strong></div>
       <div className="topbar-right"><span className="live-pill"><i /> DATA READY</span><span className="topbar-divider" /><span className="user-initials">AB</span></div>
     </header>
   );
@@ -420,7 +420,6 @@ interface SessionWorkspaceProps {
   readonly referenceLap: number;
   readonly comparedLap: number;
   readonly corners: CornerSummary[];
-  readonly onChooseSession: () => void;
   readonly onChooseDriver: (value: string) => void;
   readonly onReferenceChange: (value: number) => void;
   readonly onComparedChange: (value: number) => void;
@@ -452,7 +451,6 @@ function SessionContent(props: SessionWorkspaceProps & { readonly session: Sessi
     referenceLap,
     comparedLap,
     corners,
-    onChooseSession,
     onChooseDriver,
     onReferenceChange,
     onComparedChange,
@@ -460,7 +458,7 @@ function SessionContent(props: SessionWorkspaceProps & { readonly session: Sessi
 
   return (
     <div className="page-content">
-      <PageHeading session={session} onRefresh={onChooseSession} />
+      <PageHeading session={session} />
       <SessionStrip session={session} />
       <DriverSelection drivers={session.drivers} selectedDriver={driver} onChooseDriver={onChooseDriver} />
       {driver ? (
@@ -486,7 +484,7 @@ function SessionContent(props: SessionWorkspaceProps & { readonly session: Sessi
   );
 }
 
-function PageHeading({ session, onRefresh }: { readonly session: SessionDetails; readonly onRefresh: () => void }) {
+function PageHeading({ session }: { readonly session: SessionDetails }) {
   return (
     <section className="page-heading">
       <div>
@@ -494,7 +492,7 @@ function PageHeading({ session, onRefresh }: { readonly session: SessionDetails;
         <h1>Performance <span>analysis</span></h1>
         <p>Compara vueltas y descubre dónde cambia el rendimiento.</p>
       </div>
-      <div className="heading-actions"><span className="data-badge"><span className="status-dot" /> SESSION DATA</span><button className="icon-button" title="Actualizar" onClick={onRefresh}><RefreshCw size={16} /></button></div>
+      <div className="heading-actions"><span className="data-badge"><span className="status-dot" /> SESSION DATA</span></div>
     </section>
   );
 }
@@ -512,7 +510,7 @@ function SelectionPrompt({ title, message }: { readonly title: string; readonly 
 function SessionStrip({ session }: { readonly session: SessionDetails }) {
   return (
     <section className="session-strip">
-      <div className="session-strip-event"><span className="event-flag"><Flag size={18} /></span><span><small>EVENT / SESSION</small><strong>{session.grandPrix} <b>·</b> {session.sessionName}</strong></span></div>
+      <div className="session-strip-event" title={`${session.grandPrix} · ${session.sessionName}`}><span className="event-flag"><Flag size={18} /></span><span><small>EVENT / SESSION</small><strong>{session.grandPrix} <b>·</b> {session.sessionName}</strong></span></div>
       <div className="strip-divider" />
       <div className="session-strip-stat"><small>DRIVERS</small><strong>{session.drivers.length}</strong></div>
       <div className="session-strip-stat"><small>CIRCUIT CORNERS</small><strong>{session.cornerCount || '—'}</strong></div>
@@ -808,11 +806,11 @@ function DriverCard({ driver, selected, onClick }: DriverCardProps) {
   const initials = getDriverInitials(driver.fullName ?? driver.code);
   const bestLap = driver.bestLapSeconds == null ? 'TIME PENDING' : formatLapTime(driver.bestLapSeconds);
   return (
-    <button className={`driver-card ${selected ? 'driver-selected' : ''}`} style={{ '--team-color': color } as CSSProperties & { '--team-color': string }} onClick={onClick}>
+    <button className={`driver-card ${selected ? 'driver-selected' : ''}`} title={`${driver.code} · ${driver.fullName ?? driver.team ?? 'Driver'} · Best lap ${bestLap}`} style={{ '--team-color': color } as CSSProperties & { '--team-color': string }} onClick={onClick}>
       <span className="driver-color" />
       <span className="driver-avatar">{initials}</span>
-      <span className="driver-info"><strong>{driver.code}</strong><small>{driver.fullName ?? driver.team ?? 'Driver'}</small></span>
-      <span className="driver-best"><small>BEST</small><strong>{bestLap}</strong></span>
+      <span className="driver-info" title={driver.fullName ?? driver.team ?? 'Driver'}><strong>{driver.code}</strong><small>{driver.fullName ?? driver.team ?? 'Driver'}</small></span>
+      <span className="driver-best" title={`Best lap: ${bestLap}`}><small>BEST</small><strong>{bestLap}</strong></span>
     </button>
   );
 }

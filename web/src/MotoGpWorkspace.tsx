@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
-import { Flag, Gauge, Timer, Trophy, Wind } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
+import { Activity, Flag, Gauge, Timer, Trophy, Wind } from 'lucide-react';
 import type { MotoGpLapRecord, MotoGpRiderResult, MotoGpSessionDetails } from './types';
 import './MotoGpWorkspace.css';
 
@@ -15,13 +16,17 @@ export function MotoGpWorkspace({ details, lapRecords }: MotoGpWorkspaceProps) {
     ? lapRecords.filter((record) => riderKey(record) === selectedRider)
     : lapRecords;
   const fastest = findFastestRider(details.results);
+  const fastestLapRecord = [...lapRecords].filter((record) => parseLapTime(record.lapTime) != null)
+    .sort((first, second) => compareLapTime(first.lapTime ?? '', second.lapTime ?? ''))[0];
+  const topSpeedRecord = [...lapRecords].filter((record) => record.speedKph != null)
+    .sort((first, second) => (second.speedKph ?? 0) - (first.speedKph ?? 0))[0];
   const standings = buildStandings(details.results, lapRecords);
 
   return (
     <div className="page-content motogp-workspace">
       <section className="page-heading">
         <div>
-          <div className="eyebrow"><span>MOTOGP</span><i /> {details.session.eventName} <i /> {details.session.sessionName}</div>
+          <div className="eyebrow" title={`${details.session.eventName} · ${details.session.sessionName}`}><span>MOTOGP</span><i /> {details.session.eventName} <i /> {details.session.sessionName}</div>
           <h1>MotoGP <span>session analysis</span></h1>
           <p>Resultados y análisis de vueltas procedentes del libro de sesión.</p>
         </div>
@@ -29,58 +34,192 @@ export function MotoGpWorkspace({ details, lapRecords }: MotoGpWorkspaceProps) {
       </section>
 
       <section className="session-strip">
-        <div className="session-strip-event"><span className="event-flag"><Flag size={18} /></span><span><small>EVENT / SESSION</small><strong>{details.session.eventName} <b>·</b> {details.session.sessionName}</strong></span></div>
+        <div className="session-strip-event" title={`${details.session.eventName} · ${details.session.sessionName}`}><span className="event-flag"><Flag size={18} /></span><span><small>EVENT / SESSION</small><strong>{details.session.eventName} <b>·</b> {details.session.sessionName}</strong></span></div>
         <div className="strip-divider" />
-        <div className="session-strip-stat"><small>RIDERS</small><strong>{details.results.length}</strong></div>
-        <div className="session-strip-stat"><small>LAP RECORDS</small><strong>{details.session.lapRecordCount}</strong></div>
-        <div className="strip-weather"><Wind size={16} /><span><small>DATE / CONDITIONS</small><strong>{details.session.date ?? '—'}</strong></span></div>
+        <div className="session-strip-stat" title={`${details.results.length} riders`}><small>RIDERS</small><strong>{details.results.length}</strong></div>
+        <div className="session-strip-stat" title={`${details.session.lapRecordCount} lap records`}><small>LAP RECORDS</small><strong>{details.session.lapRecordCount}</strong></div>
+        <div className="strip-weather" title={details.session.weather ?? 'Conditions unavailable'}><Wind size={16} /><span><small>DATE / CONDITIONS</small><strong>{details.session.date ?? '—'}</strong></span></div>
       </section>
 
       <section className="motogp-overview-grid">
         <MetricCard icon={<Trophy size={17} />} label="SESSION LEADER" value={details.results[0]?.rider ?? '—'} detail={details.results[0] ? `P${details.results[0].position} · #${details.results[0].riderNumber}` : 'No result data'} />
-        <MetricCard icon={<Timer size={17} />} label="FASTEST LAP" value={fastest?.bestLap ?? '—'} detail={fastest?.rider ?? 'No lap-time data'} />
-        <MetricCard icon={<Gauge size={17} />} label="TOP SPEED" value={formatSpeed(fastest?.topSpeedKph ?? null)} detail={fastest?.rider ?? 'No speed data'} />
+        <MetricCard icon={<Timer size={17} />} label="FASTEST LAP" value={fastestLapRecord?.lapTime ?? fastest?.bestLap ?? '—'} detail={fastestLapRecord?.rider ?? fastest?.rider ?? 'No lap-time data'} />
+        <MetricCard icon={<Gauge size={17} />} label="TOP SPEED" value={formatSpeed(topSpeedRecord?.speedKph ?? fastest?.topSpeedKph ?? null)} detail={topSpeedRecord?.rider ?? fastest?.rider ?? 'No speed data'} />
         <MetricCard icon={<Flag size={17} />} label="CIRCUIT" value={details.circuit ?? '—'} detail={details.session.weather ?? 'Session conditions unavailable'} />
       </section>
 
+      <MotoGpAnalytics records={lapRecords} riders={riders} />
+
       <LapComparison records={lapRecords} riders={riders} />
 
-      <section className="motogp-panel">
-        <div className="motogp-panel-heading">
-          <div><span className="section-index">02</span><h2>Session classification</h2></div>
-          <span className="muted-label">{details.session.sessionCode} RESULTS · SOURCE ORDER</span>
-        </div>
-        <div className="motogp-table-wrap">
-          <table className="motogp-table">
-            <thead><tr><th>POS</th><th>RIDER</th><th>TEAM</th><th>BIKE</th><th>LAPS</th><th>BEST LAP</th><th>TOP SPEED</th><th>GAP</th><th>STATUS</th></tr></thead>
-            <tbody>{standings.map((result) => <ClassificationRow key={`${result.riderNumber}-${result.position}`} result={result} />)}
-            </tbody>
-          </table>
-          {standings.length === 0 && <div className="catalog-empty">No hay resultados disponibles en esta hoja.</div>}
-        </div>
-      </section>
+      <details className="motogp-details">
+        <summary><span>Session classification</span><small>{standings.length} riders · result sheet</small></summary>
+        <section className="motogp-panel">
+          <div className="motogp-table-wrap">
+            <table className="motogp-table">
+              <thead><tr><th>POS</th><th>RIDER</th><th>TEAM</th><th>BIKE</th><th>LAPS</th><th>BEST LAP</th><th>TOP SPEED</th><th>GAP</th><th>STATUS</th></tr></thead>
+              <tbody>{standings.map((result) => <ClassificationRow key={`${result.riderNumber}-${result.position}`} result={result} />)}</tbody>
+            </table>
+            {standings.length === 0 && <div className="catalog-empty">No hay resultados disponibles en esta hoja.</div>}
+          </div>
+        </section>
+      </details>
 
-      <section className="motogp-panel">
-        <div className="motogp-panel-heading">
-          <div><span className="section-index">03</span><h2>Lap analysis</h2></div>
-          <label className="rider-filter">RIDER
-            <select value={selectedRider} onChange={(event) => setSelectedRider(event.target.value)}>
-              <option value="">All riders</option>
-              {riders.map((rider) => <option key={rider.key} value={rider.key}>{rider.name} · #{rider.number}</option>)}
-            </select>
-          </label>
-        </div>
-        <div className="motogp-table-wrap lap-record-table-wrap">
-          <table className="motogp-table lap-record-table">
-            <thead><tr><th>RIDER</th><th>POS</th><th>LAP</th><th>LAP TIME</th><th>T1</th><th>T2</th><th>T3</th><th>T4</th><th>SPEED</th><th>PIT</th><th>RUN</th><th>FRONT TYRE</th><th>REAR TYRE</th></tr></thead>
-            <tbody>{visibleRecords.map((record, index) => <LapRecordRow key={`${record.riderNumber}-${record.lapNumber}-${index}`} record={record} />)}</tbody>
-          </table>
-          {visibleRecords.length === 0 && <div className="catalog-empty">No hay vueltas que mostrar.</div>}
-        </div>
-        <div className="motogp-data-note">Los datos MotoGP disponibles son agregados por vuelta; esta vista no representa muestras de telemetría continua.</div>
-      </section>
+      <details className="motogp-details">
+        <summary><span>Lap analysis data</span><small>{visibleRecords.length} lap records · detailed table</small></summary>
+        <section className="motogp-panel">
+          <div className="motogp-panel-heading">
+            <label className="rider-filter">FILTER RIDER
+              <select value={selectedRider} onChange={(event) => setSelectedRider(event.target.value)}>
+                <option value="">All riders</option>
+                {riders.map((rider) => <option key={rider.key} value={rider.key}>{rider.name} · #{rider.number}</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="motogp-table-wrap lap-record-table-wrap">
+            <table className="motogp-table lap-record-table">
+              <thead><tr><th>RIDER</th><th>POS</th><th>LAP</th><th>LAP TIME</th><th>T1</th><th>T2</th><th>T3</th><th>T4</th><th>SPEED</th><th>PIT</th><th>RUN</th><th>FRONT TYRE</th><th>REAR TYRE</th></tr></thead>
+              <tbody>{visibleRecords.map((record, index) => <LapRecordRow key={`${record.riderNumber}-${record.lapNumber}-${index}`} record={record} />)}</tbody>
+            </table>
+            {visibleRecords.length === 0 && <div className="catalog-empty">No hay vueltas que mostrar.</div>}
+          </div>
+          <div className="motogp-data-note">Los datos son tiempos agregados por vuelta; no hay muestras de telemetría continua.</div>
+        </section>
+      </details>
     </div>
   );
+}
+
+const riderChartColors = ['#73dfb2', '#ffaf63', '#68aaff', '#cb91ff'];
+
+function MotoGpAnalytics({ records, riders }: LapComparisonProps) {
+  const fastestRiders = useMemo(() => [...riders].filter((rider) => rider.bestLap != null)
+    .sort((first, second) => compareLapTime(first.bestLap ?? '', second.bestLap ?? '')), [riders]);
+  const [selectedRiders, setSelectedRiders] = useState<string[]>([]);
+
+  useEffect(() => {
+    setSelectedRiders((current) => current.length > 0
+      ? current.filter((key) => riders.some((rider) => rider.key === key)).slice(0, 4)
+      : fastestRiders.slice(0, 4).map((rider) => rider.key));
+  }, [fastestRiders, riders]);
+
+  const toggleRider = (key: string) => setSelectedRiders((current) => {
+    if (current.includes(key)) return current.filter((item) => item !== key);
+    return current.length < 4 ? [...current, key] : current;
+  });
+  const selectedRiderItems = selectedRiders
+    .map((key) => riders.find((rider) => rider.key === key))
+    .filter((rider): rider is ReturnType<typeof aggregateRiders>[number] => rider != null);
+
+  return <section className="motogp-panel motogp-analytics">
+    <div className="motogp-panel-heading">
+      <div><span className="section-index">01</span><h2>Race pace & sector performance</h2></div>
+      <span className="muted-label"><Activity size={13} /> LAP-BY-LAP DATA</span>
+    </div>
+    <div className="motogp-analytics-grid">
+      <section className="motogp-chart-card motogp-pace-card">
+        <div className="motogp-chart-heading"><div><h3>Lap time progression</h3><span>Lap time in seconds · lower is faster</span></div><small>{selectedRiders.length}/4 RIDERS</small></div>
+        <div className="motogp-rider-legend">
+          {fastestRiders.map((rider) => {
+            const selectedIndex = selectedRiders.indexOf(rider.key);
+            const riderColor = selectedIndex >= 0 ? riderChartColors[selectedIndex] : undefined;
+            return <button type="button" key={rider.key} className={`motogp-rider-chip ${selectedIndex >= 0 ? 'selected' : ''}`} title={`${rider.name} · #${rider.number}${rider.bestLap ? ` · Best lap ${rider.bestLap}` : ''}`} style={riderColor ? { '--rider-color': riderColor } as CSSProperties : undefined} onClick={() => toggleRider(rider.key)} aria-pressed={selectedIndex >= 0}>
+              <i />{rider.name} <small>#{rider.number}</small>
+            </button>;
+          })}
+          {fastestRiders.length === 0 && <span className="motogp-chart-empty">No timed laps available.</span>}
+        </div>
+        <LapPaceChart records={records} riders={selectedRiderItems} />
+      </section>
+      <SectorHeatmap records={records} riders={fastestRiders.slice(0, 10)} />
+    </div>
+    <p className="motogp-data-note">Pit laps and outliers can affect lap-time comparisons. The chart uses recorded lap times only; it does not interpolate telemetry.</p>
+  </section>;
+}
+
+function LapPaceChart({ records, riders }: { readonly records: MotoGpLapRecord[]; readonly riders: ReturnType<typeof aggregateRiders> }) {
+  const width = 800;
+  const height = 300;
+  const margin = { top: 18, right: 20, bottom: 40, left: 60 };
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const lines = riders.map((rider, index) => ({
+    ...rider,
+    color: riderChartColors[index],
+    laps: records.filter((record) => riderKey(record) === rider.key && parseLapTime(record.lapTime) != null)
+      .sort((first, second) => first.lapNumber - second.lapNumber),
+  })).filter((rider) => rider.laps.length > 0);
+  const allLaps = lines.flatMap((rider) => rider.laps);
+  if (allLaps.length === 0) return <div className="motogp-chart-empty large">Select riders with recorded lap times to view their pace.</div>;
+
+  const times = allLaps.map((lap) => parseLapTime(lap.lapTime) ?? 0);
+  let minTime = Math.min(...times);
+  let maxTime = Math.max(...times);
+  const padding = Math.max((maxTime - minTime) * .12, .5);
+  minTime -= padding;
+  maxTime += padding;
+  const lapNumbers = allLaps.map((lap) => lap.lapNumber);
+  const minLap = Math.min(...lapNumbers);
+  const maxLap = Math.max(...lapNumbers);
+  const x = (lap: number) => margin.left + (maxLap === minLap ? .5 : (lap - minLap) / (maxLap - minLap)) * plotWidth;
+  const y = (seconds: number) => margin.top + ((maxTime - seconds) / (maxTime - minTime)) * plotHeight;
+  const timeTicks = Array.from({ length: 5 }, (_, index) => minTime + (maxTime - minTime) * index / 4);
+  const lapTicks = [...new Set(Array.from({ length: Math.min(6, maxLap - minLap + 1) }, (_, index) => Math.round(minLap + (maxLap - minLap) * index / Math.max(1, Math.min(6, maxLap - minLap + 1) - 1))))];
+
+  return <div className="motogp-svg-scroll"><svg className="motogp-pace-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Lap time progression by lap">
+    {timeTicks.map((tick, index) => <g key={`time-${index}`}>
+      <line x1={margin.left} x2={width - margin.right} y1={y(tick)} y2={y(tick)} className="motogp-chart-gridline" />
+      <text x={margin.left - 9} y={y(tick) + 4} textAnchor="end" className="motogp-chart-axis">{tick.toFixed(1)}s</text>
+    </g>)}
+    {lapTicks.map((lap) => <g key={`lap-${lap}`}>
+      <line x1={x(lap)} x2={x(lap)} y1={margin.top} y2={height - margin.bottom} className="motogp-chart-gridline vertical" />
+      <text x={x(lap)} y={height - 14} textAnchor="middle" className="motogp-chart-axis">{lap}</text>
+    </g>)}
+    {lines.map((rider) => <g key={rider.key}>
+      <polyline points={rider.laps.map((lap) => `${x(lap.lapNumber)},${y(parseLapTime(lap.lapTime) ?? minTime)}`).join(' ')} fill="none" stroke={rider.color} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
+      {rider.laps.map((lap) => <circle key={`${rider.key}-${lap.lapNumber}`} cx={x(lap.lapNumber)} cy={y(parseLapTime(lap.lapTime) ?? minTime)} r="3.2" fill="#171a20" stroke={rider.color} strokeWidth="2"><title>{rider.name} · lap {lap.lapNumber}: {lap.lapTime}</title></circle>)}
+    </g>)}
+    <text x={margin.left + plotWidth / 2} y={height - 1} textAnchor="middle" className="motogp-chart-axis-title">LAP NUMBER</text>
+  </svg></div>;
+}
+
+function SectorHeatmap({ records, riders }: { readonly records: MotoGpLapRecord[]; readonly riders: ReturnType<typeof aggregateRiders> }) {
+  const bestLaps = riders.map((rider) => {
+    const laps = records.filter((record) => riderKey(record) === rider.key && parseLapTime(record.lapTime) != null)
+      .sort((first, second) => compareLapTime(first.lapTime ?? '', second.lapTime ?? ''));
+    const bestLap = laps[0];
+    const sectorValues = [
+      laps.map((lap) => parseLapTime(lap.sector1)),
+      laps.map((lap) => parseLapTime(lap.sector2)),
+      laps.map((lap) => parseLapTime(lap.sector3)),
+      laps.map((lap) => parseLapTime(lap.sector4)),
+    ];
+    const sectors = sectorValues.map((values) => {
+      const valid = values.filter((time): time is number => time != null);
+      return valid.length > 0 ? Math.min(...valid) : null;
+    });
+    return bestLap ? { rider, lap: bestLap, sectors } : null;
+  }).filter((entry): entry is NonNullable<typeof entry> => entry != null);
+  const sectorBest = [0, 1, 2, 3].map((sector) => Math.min(...bestLaps.map((entry) => entry.sectors[sector]).filter((time): time is number => time != null)));
+  const classForSector = (time: number | null, best: number) => {
+    if (time == null || !Number.isFinite(best)) return 'no-sector-time';
+    const delta = time - best;
+    if (delta < .15) return 'sector-best';
+    if (delta < .4) return 'sector-close';
+    return 'sector-behind';
+  };
+
+  return <section className="motogp-chart-card motogp-sector-heatmap">
+    <div className="motogp-chart-heading"><div><h3>Best sector times</h3><span>Best overall lap and personal best in each sector</span></div><small>TOP {bestLaps.length}</small></div>
+    {bestLaps.length > 0 ? <div className="motogp-heatmap-scroll"><table>
+      <thead><tr><th>RIDER</th><th>LAP</th><th>S1</th><th>S2</th><th>S3</th><th>S4</th></tr></thead>
+      <tbody>{bestLaps.map(({ rider, lap, sectors }) => <tr key={rider.key}>
+        <td><strong title={`${rider.name} · #${rider.number}`}>{rider.name}</strong><small>#{rider.number}</small></td><td className="heatmap-lap-time" title={`Best lap: ${lap.lapTime}`}>{lap.lapTime}</td>
+        {sectors.map((time, index) => <td key={index}><span className={`motogp-heat-cell ${classForSector(time, sectorBest[index])}`} title={time == null ? 'No sector time' : `${time.toFixed(3)} seconds${sectorBest[index] === time ? ' · session best' : ''}`}>{time == null ? '—' : time.toFixed(3)}</span></td>)}
+      </tr>)}</tbody>
+    </table></div> : <div className="motogp-chart-empty">No sector times available.</div>}
+    <div className="motogp-heat-legend"><span><i className="sector-best" />Within 0.15s of best</span><span><i className="sector-close" />Within 0.4s</span><span><i className="sector-behind" />Over 0.4s</span></div>
+  </section>;
 }
 
 interface LapComparisonProps {
@@ -172,21 +311,21 @@ function formatDelta(delta: number) {
 }
 
 function MetricCard({ icon, label, value, detail }: { readonly icon: React.ReactNode; readonly label: string; readonly value: string; readonly detail: string }) {
-  return <div className="motogp-metric"><span className="motogp-metric-icon">{icon}</span><small>{label}</small><strong>{value}</strong><span>{detail}</span></div>;
+  return <div className="motogp-metric"><span className="motogp-metric-icon">{icon}</span><small>{label}</small><strong title={value}>{value}</strong><span title={detail}>{detail}</span></div>;
 }
 
 function ClassificationRow({ result }: { readonly result: MotoGpRiderResult }) {
   return <tr>
-    <td><span className={`position-number ${result.position <= 3 ? 'podium' : ''}`}>{result.position || '—'}</span></td>
-    <td><strong>{result.rider}</strong><small>#{result.riderNumber}</small></td>
-    <td>{result.team || '—'}</td><td>{result.bike || '—'}</td><td>{result.laps ?? '—'}</td>
-    <td className="time-cell">{result.bestLap ?? '—'}</td><td>{formatSpeed(result.topSpeedKph)}</td><td>{result.gap ?? '—'}</td><td><span className="motogp-status">{result.status ?? '—'}</span></td>
+    <td><span className={`position-number ${result.position <= 3 ? 'podium' : ''}`} title={`Position ${result.position || 'not classified'}`}>{result.position || '—'}</span></td>
+    <td><strong title={`${result.rider} · #${result.riderNumber}`}>{result.rider}</strong><small>#{result.riderNumber}</small></td>
+    <td title={result.team || 'Team unavailable'}>{result.team || '—'}</td><td title={result.bike || 'Bike unavailable'}>{result.bike || '—'}</td><td>{result.laps ?? '—'}</td>
+    <td className="time-cell" title={result.bestLap ?? 'Best lap unavailable'}>{result.bestLap ?? '—'}</td><td title={formatSpeed(result.topSpeedKph)}>{formatSpeed(result.topSpeedKph)}</td><td title={result.gap ?? 'Gap unavailable'}>{result.gap ?? '—'}</td><td><span className="motogp-status" title={result.status ?? 'Status unavailable'}>{result.status ?? '—'}</span></td>
   </tr>;
 }
 
 function LapRecordRow({ record }: { readonly record: MotoGpLapRecord }) {
   return <tr>
-    <td><strong>{record.rider}</strong></td><td>{record.position || '—'}</td><td>{record.lapNumber}</td><td className="time-cell">{record.lapTime ?? '—'}</td>
+    <td><strong title={`${record.rider} · #${record.riderNumber}`}>{record.rider}</strong></td><td>{record.position || '—'}</td><td>{record.lapNumber}</td><td className="time-cell" title={record.lapTime ?? 'Lap time unavailable'}>{record.lapTime ?? '—'}</td>
     <td>{record.sector1 ?? '—'}</td><td>{record.sector2 ?? '—'}</td><td>{record.sector3 ?? '—'}</td><td>{record.sector4 ?? '—'}</td>
     <td>{formatSpeed(record.speedKph)}</td><td>{record.pit ?? '—'}</td><td>{record.run ?? '—'}</td><td>{record.frontTyre ?? '—'}</td><td>{record.rearTyre ?? '—'}</td>
   </tr>;
@@ -232,7 +371,13 @@ function buildStandings(results: MotoGpRiderResult[], lapRecords: MotoGpLapRecor
       status: 'LAP DATA',
     } satisfies MotoGpRiderResult));
 
-  return [...results, ...rowsFromLapData].sort((first, second) => first.position - second.position);
+  return [...results, ...rowsFromLapData].sort((first, second) => {
+    const firstIsOut = first.status?.toUpperCase() === 'OUTSTND';
+    const secondIsOut = second.status?.toUpperCase() === 'OUTSTND';
+    if (firstIsOut !== secondIsOut) return firstIsOut ? 1 : -1;
+    if (firstIsOut) return 0;
+    return first.position - second.position;
+  });
 }
 
 function riderKey(record: MotoGpLapRecord) {
