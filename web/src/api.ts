@@ -1,5 +1,7 @@
 import type {
   CornerSummary,
+  AssettoLapComparison,
+  AssettoSessionDetails,
   LapComparison,
   LapSummary,
   MotoGpEventSummary,
@@ -11,9 +13,10 @@ import type {
 } from './types';
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5171/api';
+const normalizedApiBase = apiBase.replace(/\/$/, '');
 
 async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(`${apiBase}${path}`, { signal });
+  const response = await fetch(`${normalizedApiBase}${path}`, { signal });
   if (!response.ok) {
     const payload = await response.json().catch(() => null) as { message?: string } | null;
     throw new Error(payload?.message ?? `La API respondió ${response.status} (${response.statusText})`);
@@ -24,6 +27,7 @@ async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
 const segment = (value: string) => encodeURIComponent(value);
 
 export const api = {
+  assetUrl: (path: string | null) => path ? `${normalizedApiBase}${path.startsWith('/') ? path : `/${path}`}` : null,
   catalog: (signal?: AbortSignal) => request<TelemetryCatalog>('/catalog', signal),
   motoGpEvents: (year: number, signal?: AbortSignal) => request<MotoGpEventSummary[]>(`/motorcycles/motogp/${year}/events`, signal),
   motoGpSession: (year: number, eventCode: string, sessionCode: string, signal?: AbortSignal) =>
@@ -41,4 +45,7 @@ export const api = {
     request<LapSummary[]>(`/cars/f1/${year}/sessions/${segment(grandPrix)}/${segment(sessionName)}/drivers/${segment(driver)}/laps`, signal),
   compare: (year: number, grandPrix: string, sessionName: string, driver: string, reference: number, compared: number, signal?: AbortSignal) =>
     request<LapComparison>(`/cars/f1/${year}/sessions/${segment(grandPrix)}/${segment(sessionName)}/drivers/${segment(driver)}/laps/compare?referenceLap=${reference}&comparedLap=${compared}&points=201`, signal),
+  assettoSession: (sessionId: string, signal?: AbortSignal) => request<AssettoSessionDetails>(`/cars/assetto-corsa/sessions/${segment(sessionId)}`, signal),
+  assettoCompare: (sessionId: string, reference: number, compared: number, signal?: AbortSignal) =>
+    request<AssettoLapComparison>(`/cars/assetto-corsa/sessions/${segment(sessionId)}/laps/compare?referenceLap=${reference}&comparedLap=${compared}&points=201`, signal),
 };

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from './api';
-import type { CornerSummary, LapComparison, LapSummary, MotoGpEventSummary, MotoGpLapRecord, MotoGpSessionDetails, SessionDetails, SessionSummary, TelemetryCatalog } from './types';
+import type { AssettoLapComparison, AssettoSessionDetails, CornerSummary, LapComparison, LapSummary, MotoGpEventSummary, MotoGpLapRecord, MotoGpSessionDetails, SessionDetails, SessionSummary, TelemetryCatalog } from './types';
 
 interface DashboardState {
   catalog: TelemetryCatalog | null;
@@ -8,6 +8,9 @@ interface DashboardState {
   selectedSessionId: string;
   selectedSession: SessionSummary | null;
   selectedMotoGpSession: MotoGpSessionDetails | null;
+  selectedAssettoSessionId: string | null;
+  assettoSession: AssettoSessionDetails | null;
+  assettoComparison: AssettoLapComparison | null;
   motoGpEvents: MotoGpEventSummary[];
   motoGpLapRecords: MotoGpLapRecord[];
   session: SessionDetails | null;
@@ -29,6 +32,8 @@ interface DashboardState {
   chooseDriver: (value: string | null) => void;
   chooseF1Session: (year: number, value: string) => void;
   chooseMotoGpSession: (year: number, eventCode: string, sessionCode: string) => void;
+  chooseAssettoSession: (sessionId: string) => void;
+  compareAssettoLaps: (reference: number, compared: number) => void;
 }
 
 const isAbortError = (cause: unknown) => cause instanceof DOMException && cause.name === 'AbortError';
@@ -42,6 +47,9 @@ export function useRaceMindDashboard(): DashboardState {
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [selectedF1Session, setSelectedF1Session] = useState<SessionSummary | null>(null);
   const [selectedMotoGpSession, setSelectedMotoGpSession] = useState<MotoGpSessionDetails | null>(null);
+  const [selectedAssettoSessionId, setSelectedAssettoSessionId] = useState<string | null>(null);
+  const [assettoSession, setAssettoSession] = useState<AssettoSessionDetails | null>(null);
+  const [assettoComparison, setAssettoComparison] = useState<AssettoLapComparison | null>(null);
   const [motoGpEvents, setMotoGpEvents] = useState<MotoGpEventSummary[]>([]);
   const [motoGpLapRecords, setMotoGpLapRecords] = useState<MotoGpLapRecord[]>([]);
   const [session, setSession] = useState<SessionDetails | null>(null);
@@ -57,6 +65,20 @@ export function useRaceMindDashboard(): DashboardState {
   const [search, setSearch] = useState('');
 
   const selectedSession = selectedF1Session;
+
+  useEffect(() => {
+    if (!selectedAssettoSessionId) return;
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    api.assettoSession(selectedAssettoSessionId, controller.signal)
+      .then((details) => {
+        setAssettoSession(details);
+      })
+      .catch((cause: unknown) => setFailure(cause, controller.signal, setError, 'No se pudo cargar la sesión de Assetto Corsa.'))
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [selectedAssettoSessionId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -148,6 +170,9 @@ export function useRaceMindDashboard(): DashboardState {
     setSelectedYear(year);
     setSelectedF1Session(selected);
     setSelectedMotoGpSession(null);
+    setSelectedAssettoSessionId(null);
+    setAssettoSession(null);
+    setAssettoComparison(null);
     setMotoGpLapRecords([]);
     setLoading(true);
     setError(null);
@@ -163,6 +188,9 @@ export function useRaceMindDashboard(): DashboardState {
     setSelectedSessionId(`motogp/${year}/${eventCode}/${sessionCode}`);
     setSelectedYear(year);
     setSelectedF1Session(null);
+    setSelectedAssettoSessionId(null);
+    setAssettoSession(null);
+    setAssettoComparison(null);
     setSelectedMotoGpSession(null);
     setMotoGpLapRecords([]);
     setDriver(null);
@@ -185,11 +213,45 @@ export function useRaceMindDashboard(): DashboardState {
       });
   };
 
+  const chooseAssettoSession = (sessionId: string) => {
+    setSelectedSessionId(`assetto/${sessionId}`);
+    setSelectedYear(null);
+    setSelectedF1Session(null);
+    setSelectedMotoGpSession(null);
+    setSelectedAssettoSessionId(sessionId);
+    setAssettoSession(null);
+    setAssettoComparison(null);
+    setMotoGpLapRecords([]);
+    setSession(null);
+    setDriver(null);
+    setLoading(true);
+    setError(null);
+  };
+
+  const compareAssettoLaps = (reference: number, compared: number) => {
+    if (!selectedAssettoSessionId || reference === compared) {
+      setAssettoComparison(null);
+      return;
+    }
+    const controller = new AbortController();
+    setComparisonLoading(true);
+    api.assettoCompare(selectedAssettoSessionId, reference, compared, controller.signal)
+      .then(setAssettoComparison)
+      .catch((cause: unknown) => {
+        setFailure(cause, controller.signal, setError, 'No se pudieron comparar las vueltas de Assetto Corsa.');
+        if (!controller.signal.aborted) setAssettoComparison(null);
+      })
+      .finally(() => { if (!controller.signal.aborted) setComparisonLoading(false); });
+  };
+
   const resetDashboard = () => {
     setSelectedSessionId('');
     setSelectedYear(null);
     setSelectedF1Session(null);
     setSelectedMotoGpSession(null);
+    setSelectedAssettoSessionId(null);
+    setAssettoSession(null);
+    setAssettoComparison(null);
     setMotoGpLapRecords([]);
     setSession(null);
     setDriver(null);
@@ -207,6 +269,9 @@ export function useRaceMindDashboard(): DashboardState {
     selectedYear,
     selectedSession,
     selectedMotoGpSession,
+    selectedAssettoSessionId,
+    assettoSession,
+    assettoComparison,
     motoGpEvents,
     motoGpLapRecords,
     session,
@@ -228,6 +293,8 @@ export function useRaceMindDashboard(): DashboardState {
     chooseDriver,
     chooseF1Session,
     chooseMotoGpSession,
+    chooseAssettoSession,
+    compareAssettoLaps,
   };
 }
 

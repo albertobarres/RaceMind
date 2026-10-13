@@ -107,6 +107,14 @@ Presentar hallazgos calculados y validados, después incorporar ML/LLM. El infor
 
 Los XLSX MotoGP ofrecen tablas agregadas por sesión y vuelta, no señales temporales de telemetría continua. Su pantalla muestra una clasificación, métricas superiores de sesión y análisis de vueltas por piloto con los cuatro sectores, velocidad, pit, run y neumáticos. No dibuja gráficos temporales ni aplica la comparación F1 a estos registros.
 
+### Vista Assetto Corsa
+
+Assetto Corsa carga `Simuladores/Assetto Corsa/**/telemetry.csv` junto a `session_info.json`, `map.png` y `car.jpg`. El proveedor procesa los CSV en streaming y no depende de `telemetry.xlsx`. El progreso de vuelta del archivo puede no estar informado; la reconstrucción actual detecta pasos repetidos dentro de 15 m del origen de las coordenadas `pos_x/pos_z`, aplica un intervalo mínimo de 30 s entre cruces y descarta segmentos fuera de 500–100 000 m o de 20–1 200 s. Es una heurística explícita para estas sesiones, no una marca de vuelta garantizada por el simulador.
+
+La vista presenta imagen y especificaciones del coche, resumen de sesión, mapa de trazada coloreado por velocidad, mapa PNG por separado, comparación de velocidad/controles/delta/G lateral, temperaturas del núcleo de neumático y tabla por vuelta. Tiempo de vuelta se toma del intervalo de `timestamp`; distancia se calcula desde posición y se omiten saltos de muestreo mayores de 0,2 s. La punta de velocidad de vuelta usa percentil 99 para reducir picos. Sectores no se muestran porque no existen referencias de sector verificadas. Canales constantes como `water_temp=0` y temperaturas de freno a 26 °C se advierten como no disponibles.
+
+La potencia se presenta en CV y kW. `Samples / lap` es el número de filas de telemetría que contiene la vuelta reconstruida. Las rutas de imágenes se resuelven respecto a la base de la API para que funcionen tanto con la URL predeterminada como con `VITE_API_BASE_URL` configurada.
+
 ## Contrato para gráfica de comparación
 
 La respuesta de comparación es una serie de puntos uniformes en `relativeDistance` de 0 a 1. Cada punto contiene tiempos, delta temporal, velocidades, acelerador y freno en ambas vueltas. La interpolación es lineal entre muestras vecinas tras ordenar por `rel_distance`; los extremos que no cubre exactamente el rango fuente quedan limitados a la primera/última muestra.

@@ -133,3 +133,81 @@ public interface IMotoGpDataProvider
     Task<MotoGpSessionDetails?> GetSessionDetailsAsync(int year, string eventCode, string sessionCode, CancellationToken cancellationToken);
     Task<IReadOnlyList<MotoGpLapRecord>?> GetLapRecordsAsync(int year, string eventCode, string sessionCode, string? rider, CancellationToken cancellationToken);
 }
+
+public sealed record AssettoCarSpecs(int? MaxRpm, double? MaxPowerWatts, double? MaxTorqueNm, double? MaxFuelLitres);
+
+public sealed record AssettoLapSummary(
+    int Number,
+    double StartTimeSeconds,
+    double LapTimeSeconds,
+    double DistanceMeters,
+    double MaxSpeedKph,
+    double AverageSpeedKph,
+    double MaxRpm,
+    double FuelStartLitres,
+    double FuelEndLitres,
+    int SampleCount);
+
+public sealed record AssettoTrackPoint(double X, double Z, double SpeedKph);
+
+public sealed record AssettoSessionDetails(
+    string Id,
+    string Circuit,
+    string Car,
+    AssettoCarSpecs Specs,
+    int SampleCount,
+    double DurationSeconds,
+    double? PeakSpeedKph,
+    int LapCount,
+    double? BestLapSeconds,
+    string? MapUrl,
+    string? CarImageUrl,
+    IReadOnlyList<AssettoLapSummary> Laps,
+    IReadOnlyList<AssettoTrackPoint> Track,
+    IReadOnlyList<string> Warnings);
+
+public sealed record AssettoTelemetrySample(
+    double RelativeDistance,
+    double ElapsedSeconds,
+    double SpeedKph,
+    double Rpm,
+    int Gear,
+    double Throttle,
+    double Brake,
+    double Steering,
+    double LateralG,
+    double LongitudinalG,
+    double SlipAngle,
+    double X,
+    double Z,
+    double FuelLitres,
+    double TyreCoreFl,
+    double TyreCoreFr,
+    double TyreCoreRl,
+    double TyreCoreRr,
+    double BrakeTempFl,
+    double BrakeTempFr,
+    double BrakeTempRl,
+    double BrakeTempRr);
+
+public sealed record AssettoComparisonPoint(
+    double RelativeDistance,
+    double DeltaElapsedSeconds,
+    AssettoTelemetrySample Reference,
+    AssettoTelemetrySample Compared);
+
+public sealed record AssettoLapComparison(
+    int ReferenceLap,
+    int ComparedLap,
+    double ReferenceLapTimeSeconds,
+    double ComparedLapTimeSeconds,
+    double DeltaLapTimeSeconds,
+    IReadOnlyList<AssettoComparisonPoint> Points);
+
+public interface IAssettoCorsaDataProvider
+{
+    Task<IReadOnlyList<TelemetryDataset>> GetSessionsAsync(CancellationToken cancellationToken);
+    Task<AssettoSessionDetails?> GetSessionAsync(string sessionPath, CancellationToken cancellationToken);
+    Task<AssettoLapComparison?> CompareLapsAsync(string sessionPath, int referenceLap, int comparedLap, int pointCount, CancellationToken cancellationToken);
+    string? GetAssetPath(string sessionPath, string assetName);
+}

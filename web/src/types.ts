@@ -173,3 +173,80 @@ export interface LapComparison {
   sectorDeltasSeconds: (number | null)[];
   points: ComparisonPoint[];
 }
+
+export interface AssettoLapSummary {
+  number: number;
+  startTimeSeconds: number;
+  lapTimeSeconds: number;
+  distanceMeters: number;
+  maxSpeedKph: number;
+  averageSpeedKph: number;
+  maxRpm: number;
+  fuelStartLitres: number;
+  fuelEndLitres: number;
+  sampleCount: number;
+}
+
+export interface AssettoTrackPoint {
+  x: number;
+  z: number;
+  speedKph: number;
+}
+
+export interface AssettoTelemetrySample {
+  relativeDistance: number;
+  elapsedSeconds: number;
+  speedKph: number;
+  rpm: number;
+  gear: number;
+  throttle: number;
+  brake: number;
+  steering: number;
+  lateralG: number;
+  longitudinalG: number;
+  slipAngle: number;
+  x: number;
+  z: number;
+  fuelLitres: number;
+  tyreCoreFl: number;
+  tyreCoreFr: number;
+  tyreCoreRl: number;
+  tyreCoreRr: number;
+  brakeTempFl: number;
+  brakeTempFr: number;
+  brakeTempRl: number;
+  brakeTempRr: number;
+}
+
+export interface AssettoComparisonPoint {
+  relativeDistance: number;
+  deltaElapsedSeconds: number;
+  reference: AssettoTelemetrySample;
+  compared: AssettoTelemetrySample;
+}
+
+export interface AssettoLapComparison {
+  referenceLap: number;
+  comparedLap: number;
+  referenceLapTimeSeconds: number;
+  comparedLapTimeSeconds: number;
+  deltaLapTimeSeconds: number;
+  points: AssettoComparisonPoint[];
+}
+
+export interface AssettoSessionDetails {
+  id: string;
+  circuit: string;
+  car: string;
+  specs: { maxRpm: number | null; maxPowerWatts: number | null; maxTorqueNm: number | null; maxFuelLitres: number | null };
+  sampleCount: number;
+  durationSeconds: number;
+  peakSpeedKph: number | null;
+  lapCount: number;
+  bestLapSeconds: number | null;
+  mapUrl: string | null;
+  carImageUrl: string | null;
+  laps: AssettoLapSummary[];
+  track: AssettoTrackPoint[];
+  warnings: string[];
+}

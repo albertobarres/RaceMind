@@ -16,6 +16,8 @@ builder.Services.AddSingleton<ITelemetryCatalogProvider>(_ =>
     new TelemetryCatalogProvider(dataRoot ?? Path.Combine(Directory.GetCurrentDirectory(), "data")));
 builder.Services.AddSingleton<IMotoGpDataProvider>(_ =>
     new MotoGpExcelDataProvider(dataRoot ?? Path.Combine(Directory.GetCurrentDirectory(), "data")));
+builder.Services.AddSingleton<IAssettoCorsaDataProvider>(_ =>
+    new AssettoCorsaCsvDataProvider(dataRoot ?? Path.Combine(Directory.GetCurrentDirectory(), "data")));
 builder.Services.AddSingleton<LapComparisonService>();
 builder.Services.AddCors(options => options.AddPolicy("frontend", policy =>
 {
@@ -32,6 +34,43 @@ api.MapGet("/health", () => Results.Ok(new { status = "ok", service = "RaceMind.
 
 api.MapGet("/catalog", async (ITelemetryCatalogProvider provider, CancellationToken cancellationToken) =>
     Results.Ok(await provider.GetCatalogAsync(cancellationToken))).WithName("GetTelemetryCatalog");
+
+api.MapGet("/cars/assetto-corsa/sessions/{sessionPath}", async (string sessionPath, IAssettoCorsaDataProvider provider, CancellationToken cancellationToken) =>
+    {
+        var details = await provider.GetSessionAsync(sessionPath, cancellationToken);
+        return details is null ? Results.NotFound() : Results.Ok(details);
+    })
+    .WithName("GetAssettoCorsaSession");
+
+api.MapGet("/cars/assetto-corsa/sessions/{sessionPath}/laps/compare", async (
+    string sessionPath, int referenceLap, int comparedLap, int? points, IAssettoCorsaDataProvider provider, CancellationToken cancellationToken) =>
+    {
+        if (referenceLap <= 0 || comparedLap <= 0 || referenceLap == comparedLap)
+        {
+            return Results.BadRequest(new { message = "Selecciona dos vueltas distintas y positivas." });
+        }
+
+        var pointCount = points ?? 201;
+        if (pointCount is < 2 or > 2001)
+        {
+            return Results.BadRequest(new { message = "El parámetro points debe estar entre 2 y 2001." });
+        }
+
+        var comparison = await provider.CompareLapsAsync(sessionPath, referenceLap, comparedLap, pointCount, cancellationToken);
+        return comparison is null
+            ? Results.UnprocessableEntity(new { message = "No se pudieron reconstruir ambas vueltas con calidad suficiente." })
+            : Results.Ok(comparison);
+    })
+    .WithName("CompareAssettoCorsaLaps");
+
+api.MapGet("/cars/assetto-corsa/sessions/{sessionPath}/assets/{assetName}", (string sessionPath, string assetName, IAssettoCorsaDataProvider provider) =>
+    {
+        var path = provider.GetAssetPath(sessionPath, assetName);
+        if (path is null) return Results.NotFound();
+        var contentType = assetName.Equals("map.png", StringComparison.OrdinalIgnoreCase) ? "image/png" : "image/jpeg";
+        return Results.File(path, contentType, enableRangeProcessing: true);
+    })
+    .WithName("GetAssettoCorsaAsset");
 
 api.MapGet("/cars/f1/{year:int}/sessions", async (int year, IF1DataProvider provider, CancellationToken cancellationToken) =>
     Results.Ok(await provider.GetSessionsAsync(year, cancellationToken))).WithName("GetSessions");

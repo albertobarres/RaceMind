@@ -138,6 +138,12 @@ public sealed class TelemetryCatalogProvider(string dataRoot) : ITelemetryCatalo
 
     private IReadOnlyList<TelemetryDataset> BuildSimulatorDatasets(string root)
     {
+        if (Path.GetFileName(root).Equals("Assetto Corsa", StringComparison.OrdinalIgnoreCase))
+        {
+            return new AssettoCorsaCsvDataProvider(_telemetryRoot).GetSessionsAsync(CancellationToken.None)
+                .GetAwaiter().GetResult();
+        }
+
         var datasetDirectories = Directory.EnumerateDirectories(root)
             .Where(path => !ParseYear(Path.GetFileName(path)).HasValue)
             .ToArray();

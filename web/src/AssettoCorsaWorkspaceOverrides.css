@@ -1,0 +1,9 @@
+.assetto-table-note {
+  margin: 8px 2px 0;
+  color: #818c96;
+  font-size: 10px;
+}
+
+.assetto-specs > div:nth-child(2) strong {
+  font-size: 12px;
+}

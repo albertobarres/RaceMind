@@ -169,6 +169,12 @@
   font-size: 11px;
 }
 
+.catalog-dataset.selected {
+  border: 1px solid #315446;
+  background: #202b29;
+  color: #e0e8e4;
+}
+
 .catalog-dataset:disabled {
   cursor: not-allowed;
   opacity: .75;

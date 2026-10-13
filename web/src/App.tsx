@@ -16,8 +16,9 @@ import {
 } from 'lucide-react';
 import { SeriesChart, TrackMap } from './Charts';
 import { MotoGpWorkspace } from './MotoGpWorkspace';
+import { AssettoCorsaWorkspace } from './AssettoCorsaWorkspace';
 import { useRaceMindDashboard } from './useRaceMindDashboard';
-import type { CornerSummary, DriverSummary, LapComparison, LapSummary, MotoGpEventSummary, MotoGpLapRecord, MotoGpSessionDetails, MotoGpSessionSummary, SessionDetails, SessionSummary, TelemetryCatalog, TelemetryDataset, TelemetrySeries, TelemetryYear } from './types';
+import type { AssettoLapComparison, AssettoSessionDetails, CornerSummary, DriverSummary, LapComparison, LapSummary, MotoGpEventSummary, MotoGpLapRecord, MotoGpSessionDetails, MotoGpSessionSummary, SessionDetails, SessionSummary, TelemetryCatalog, TelemetryDataset, TelemetrySeries, TelemetryYear } from './types';
 
 function formatLapTime(seconds: number | null | undefined) {
   if (seconds == null || !Number.isFinite(seconds)) return '—';
@@ -53,6 +54,9 @@ export default function App() {
     selectedYear,
     selectedSession,
     selectedMotoGpSession,
+    selectedAssettoSessionId,
+    assettoSession,
+    assettoComparison,
     motoGpEvents,
     motoGpLapRecords,
     session,
@@ -74,6 +78,8 @@ export default function App() {
     chooseDriver,
     chooseF1Session,
     chooseMotoGpSession,
+    chooseAssettoSession,
+    compareAssettoLaps,
   } = dashboard;
 
   const selectedDriver = session?.drivers.find((item) => item.code === driver) ?? null;
@@ -91,18 +97,22 @@ export default function App() {
         search={search}
         onSearchChange={setSearch}
         onChooseF1Session={chooseF1Session}
-        onChooseMotoGpSession={chooseMotoGpSession}
+         onChooseMotoGpSession={chooseMotoGpSession}
+         selectedAssettoSessionId={selectedAssettoSessionId}
+         onChooseAssettoSession={chooseAssettoSession}
         motoGpEvents={motoGpEvents}
         onHome={resetDashboard}
       />
 
       <main id="top" className="main-content">
-        <Header grandPrix={selectedSession?.grandPrix ?? selectedMotoGpSession?.session.eventName} />
+        <Header grandPrix={selectedSession?.grandPrix ?? selectedMotoGpSession?.session.eventName ?? assettoSession?.circuit} />
         {error && <ErrorBanner message={error} onClose={() => setError(null)} />}
         <SessionWorkspace
           loading={loading}
           session={session}
           motoGpSession={selectedMotoGpSession}
+          assettoSession={assettoSession}
+          assettoComparison={assettoComparison}
           motoGpLapRecords={motoGpLapRecords}
           selectedDriver={selectedDriver}
           driver={driver ?? ''}
@@ -115,6 +125,7 @@ export default function App() {
           comparedLap={comparedLap}
           corners={corners}
           onChooseDriver={chooseDriver}
+          onCompareAssettoLaps={compareAssettoLaps}
           onReferenceChange={setReferenceLap}
           onComparedChange={setComparedLap}
         />
@@ -127,18 +138,20 @@ interface SidebarProps {
   readonly catalog: TelemetryCatalog | null;
   readonly selectedSessionId: string;
   readonly selectedMotoGpSessionId: string | null;
+  readonly selectedAssettoSessionId: string | null;
   readonly selectedYear: number | null;
   readonly loading: boolean;
   readonly search: string;
   readonly onSearchChange: (value: string) => void;
   readonly onChooseF1Session: (year: number, id: string) => void;
   readonly onChooseMotoGpSession: (year: number, eventCode: string, sessionCode: string) => void;
+  readonly onChooseAssettoSession: (sessionId: string) => void;
   readonly motoGpEvents: MotoGpEventSummary[];
   readonly onHome: () => void;
 }
 
 function Sidebar(props: SidebarProps) {
-  const { catalog, selectedSessionId, selectedMotoGpSessionId, selectedYear, loading, search, onSearchChange, onChooseF1Session, onChooseMotoGpSession, motoGpEvents, onHome } = props;
+  const { catalog, selectedSessionId, selectedMotoGpSessionId, selectedAssettoSessionId, selectedYear, loading, search, onSearchChange, onChooseF1Session, onChooseMotoGpSession, onChooseAssettoSession, motoGpEvents, onHome } = props;
   return (
     <aside className="sidebar">
       <button className="brand brand-button" type="button" aria-label="Volver a RaceMind inicio y deseleccionar sesión" onClick={onHome}>
@@ -159,7 +172,7 @@ function Sidebar(props: SidebarProps) {
       <div className="session-list">
         {loading && !catalog && <div className="side-loading"><span className="spinner" />Cargando fuentes y sesiones...</div>}
         {catalog?.categories.map((category) => (
-          <CatalogCategory key={category.key} category={category} search={search} selectedSessionId={selectedSessionId} selectedMotoGpSessionId={selectedMotoGpSessionId} selectedYear={selectedYear} onChooseF1Session={onChooseF1Session} onChooseMotoGpSession={onChooseMotoGpSession} motoGpEvents={motoGpEvents} />
+          <CatalogCategory key={category.key} category={category} search={search} selectedSessionId={selectedSessionId} selectedMotoGpSessionId={selectedMotoGpSessionId} selectedAssettoSessionId={selectedAssettoSessionId} selectedYear={selectedYear} onChooseF1Session={onChooseF1Session} onChooseMotoGpSession={onChooseMotoGpSession} onChooseAssettoSession={onChooseAssettoSession} motoGpEvents={motoGpEvents} />
         ))}
         {!loading && catalog?.categories.length === 0 && <div className="empty-side">No hay fuentes configuradas.</div>}
         {!loading && catalog && catalog.categories.length > 0 && !hasMatchingCatalogItems(catalog, search) &&
@@ -179,14 +192,16 @@ interface CatalogCategoryProps {
   readonly search: string;
   readonly selectedSessionId: string;
   readonly selectedMotoGpSessionId: string | null;
+  readonly selectedAssettoSessionId: string | null;
   readonly selectedYear: number | null;
   readonly onChooseF1Session: (year: number, id: string) => void;
   readonly onChooseMotoGpSession: (year: number, eventCode: string, sessionCode: string) => void;
+  readonly onChooseAssettoSession: (sessionId: string) => void;
   readonly motoGpEvents: MotoGpEventSummary[];
 }
 
 function CatalogCategory(props: CatalogCategoryProps) {
-  const { category, search, selectedSessionId, selectedMotoGpSessionId, selectedYear, onChooseF1Session, onChooseMotoGpSession, motoGpEvents } = props;
+  const { category, search, selectedSessionId, selectedMotoGpSessionId, selectedAssettoSessionId, selectedYear, onChooseF1Session, onChooseMotoGpSession, onChooseAssettoSession, motoGpEvents } = props;
   const [expanded, setExpanded] = useState(category.key === 'cars' || category.key === 'motorcycles' || category.key === 'simulators');
   const matchingSeries = category.series.filter((series) => seriesMatchesSearch(series, search));
   return (
@@ -196,7 +211,7 @@ function CatalogCategory(props: CatalogCategoryProps) {
       </TreeToggle>
       {expanded && <div className="catalog-category-children">
         {matchingSeries.map((series) => (
-          <CatalogSeries key={series.key} categoryKey={category.key} series={series} search={search} selectedSessionId={selectedSessionId} selectedMotoGpSessionId={selectedMotoGpSessionId} selectedYear={selectedYear} onChooseF1Session={onChooseF1Session} onChooseMotoGpSession={onChooseMotoGpSession} motoGpEvents={motoGpEvents} />
+          <CatalogSeries key={series.key} categoryKey={category.key} series={series} search={search} selectedSessionId={selectedSessionId} selectedMotoGpSessionId={selectedMotoGpSessionId} selectedAssettoSessionId={selectedAssettoSessionId} selectedYear={selectedYear} onChooseF1Session={onChooseF1Session} onChooseMotoGpSession={onChooseMotoGpSession} onChooseAssettoSession={onChooseAssettoSession} motoGpEvents={motoGpEvents} />
         ))}
         {matchingSeries.length === 0 && <div className="catalog-empty">No hay coincidencias.</div>}
       </div>}
@@ -210,20 +225,23 @@ interface CatalogSeriesProps {
   readonly search: string;
   readonly selectedSessionId: string;
   readonly selectedMotoGpSessionId: string | null;
+  readonly selectedAssettoSessionId: string | null;
   readonly selectedYear: number | null;
   readonly onChooseF1Session: (year: number, id: string) => void;
   readonly onChooseMotoGpSession: (year: number, eventCode: string, sessionCode: string) => void;
+  readonly onChooseAssettoSession: (sessionId: string) => void;
   readonly motoGpEvents: MotoGpEventSummary[];
 }
 
 function CatalogSeries(props: CatalogSeriesProps) {
-  const { categoryKey, series, search, selectedSessionId, selectedMotoGpSessionId, selectedYear, onChooseF1Session, onChooseMotoGpSession, motoGpEvents } = props;
+  const { categoryKey, series, search, selectedSessionId, selectedMotoGpSessionId, selectedAssettoSessionId, selectedYear, onChooseF1Session, onChooseMotoGpSession, onChooseAssettoSession, motoGpEvents } = props;
   const [expanded, setExpanded] = useState(false);
   const visibleYears = series.years.filter((year) => yearMatchesSearch(year, search));
   const visibleDatasets = series.datasets.filter((dataset) => datasetMatchesSearch(dataset, search));
   const hasContents = visibleYears.length > 0 || visibleDatasets.length > 0;
+  const isAssetto = categoryKey === 'simulators' && series.key === 'assetto-corsa';
   const isAnalysisAvailable = (categoryKey === 'cars' && series.key === 'f1') ||
-    (categoryKey === 'motorcycles' && series.key === 'motogp');
+    (categoryKey === 'motorcycles' && series.key === 'motogp') || isAssetto;
 
   return (
     <div className="catalog-series">
@@ -238,7 +256,7 @@ function CatalogSeries(props: CatalogSeriesProps) {
         {categoryKey === 'motorcycles' && series.key === 'motogp' && (
           <MotoGpLocalSessions events={motoGpEvents} search={search} selectedSessionId={selectedMotoGpSessionId} onChooseSession={onChooseMotoGpSession} />
         )}
-        {visibleDatasets.map((dataset) => <CatalogDataset key={dataset.key} dataset={dataset} enabled={false} />)}
+        {visibleDatasets.map((dataset) => <CatalogDataset key={dataset.key} dataset={dataset} enabled={isAssetto && dataset.hasSessionAnalysis} selected={selectedAssettoSessionId === dataset.key} onClick={() => onChooseAssettoSession(dataset.key)} />)}
         {!hasContents && <div className="catalog-empty">Sin datos disponibles todavía.</div>}
       </div>}
     </div>
@@ -278,10 +296,10 @@ function CatalogYear(props: CatalogYearProps) {
   );
 }
 
-function CatalogDataset({ dataset, enabled }: { readonly dataset: TelemetryDataset; readonly enabled: boolean }) {
+function CatalogDataset({ dataset, enabled, selected = false, onClick }: { readonly dataset: TelemetryDataset; readonly enabled: boolean; readonly selected?: boolean; readonly onClick?: () => void }) {
   const label = dataset.hasSessionAnalysis ? dataset.name : `${dataset.name} · próximamente`;
   return (
-    <button className="catalog-dataset" type="button" disabled={!enabled} title={enabled ? dataset.name : `${dataset.name} · La integración de esta fuente se añadirá más adelante`}>
+    <button className={`catalog-dataset ${selected ? 'selected' : ''}`} type="button" disabled={!enabled} onClick={onClick} title={enabled ? dataset.name : `${dataset.name} · La integración de esta fuente se añadirá más adelante`}>
       <span className="catalog-dataset-dot" />
       <span>{label}</span>
     </button>
@@ -409,6 +427,8 @@ interface SessionWorkspaceProps {
   readonly loading: boolean;
   readonly session: SessionDetails | null;
   readonly motoGpSession: MotoGpSessionDetails | null;
+  readonly assettoSession: AssettoSessionDetails | null;
+  readonly assettoComparison: AssettoLapComparison | null;
   readonly motoGpLapRecords: MotoGpLapRecord[];
   readonly selectedDriver: DriverSummary | null;
   readonly driver: string;
@@ -421,6 +441,7 @@ interface SessionWorkspaceProps {
   readonly comparedLap: number;
   readonly corners: CornerSummary[];
   readonly onChooseDriver: (value: string) => void;
+  readonly onCompareAssettoLaps: (reference: number, compared: number) => void;
   readonly onReferenceChange: (value: number) => void;
   readonly onComparedChange: (value: number) => void;
 }
@@ -432,8 +453,11 @@ function SessionWorkspace(props: SessionWorkspaceProps) {
   if (props.motoGpSession) {
     return <MotoGpWorkspace details={props.motoGpSession} lapRecords={props.motoGpLapRecords} />;
   }
+  if (props.assettoSession) {
+    return <AssettoCorsaWorkspace details={props.assettoSession} comparison={props.assettoComparison} comparisonLoading={props.comparisonLoading} onCompare={props.onCompareAssettoLaps} />;
+  }
   if (!props.session) {
-    return <SelectionPrompt title="Selecciona un Gran Premio" message="Elige un evento y una sesión en el panel izquierdo para consultar sus condiciones, pilotos y vueltas." />;
+    return <SelectionPrompt title="Selecciona una sesión" message="Elige un Gran Premio, evento de MotoGP o una sesión de Assetto Corsa en el panel izquierdo para consultar sus datos." />;
   }
   return <SessionContent {...props} session={props.session} />;
 }
