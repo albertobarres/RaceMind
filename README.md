@@ -14,7 +14,7 @@ Los cálculos y hallazgos deben ser reproducibles. La IA generativa, si se incor
 
 ## Estado actual
 
-La base inicial está creada: API ASP.NET Core en .NET 10 y dashboard React/TypeScript. F1 dispone de comparación de telemetría; MotoGP dispone de calendario, resultados y tabla de análisis de vueltas desde XLSX. La navegación ofrece `Coches → F1 → año → evento → sesión`, `Motos → MotoGP → año → evento → sesión`, `Motos → WorldSBK → datasets` y `Simuladores → fuente → datasets`. WorldSBK/Kawasaki y los simuladores se mantienen como fuentes futuras.
+La base inicial está creada: API ASP.NET Core en .NET 10 y dashboard React/TypeScript. F1 dispone de comparación de telemetría; MotoGP dispone de calendario, resultados y tabla de análisis de vueltas desde XLSX. Assetto Corsa ofrece análisis de telemetría CSV por sesión. La navegación ofrece `Coches → F1 → año → evento → sesión`, `Motos → MotoGP → año → evento → sesión` y `Simuladores → fuente → datasets`.
 
 ## Estructura
 

@@ -5,19 +5,16 @@ namespace RaceMind.UnitTests;
 public sealed class TelemetryCatalogProviderTests
 {
     [Fact]
-    public async Task GetCatalogAsync_GroupsF1ByYearAndListsFutureSources()
+    public async Task GetCatalogAsync_GroupsF1AndExposesOnlySupportedMotorcycleSeries()
     {
         var root = Path.Combine(Path.GetTempPath(), $"racemind-catalog-{Guid.NewGuid():N}");
         var f1Session = Path.Combine(root, "Coches", "F1", "2026", "Spanish Grand Prix", "Race");
-        var worldSbk = Path.Combine(root, "Motos", "WorldSBK", "Kawasaki Ninja 400 SSP300");
         var assetto = Path.Combine(root, "Simuladores", "Assetto Corsa", "Silverstone 1967");
         var motogp = Path.Combine(root, "Motos", "MotoGP", "2026");
         Directory.CreateDirectory(f1Session);
-        Directory.CreateDirectory(worldSbk);
         Directory.CreateDirectory(assetto);
         Directory.CreateDirectory(motogp);
         File.WriteAllText(Path.Combine(f1Session, "session_laptimes.json"), "{}");
-        File.WriteAllText(Path.Combine(worldSbk, "LOG00000.TXT"), "{}");
         File.WriteAllText(Path.Combine(assetto, "telemetry.csv"), "sample");
         CreateMinimalMotoGpWorkbook(Path.Combine(motogp, "MotoGP_2026_SPA_motogp_full.xlsx"));
 
@@ -32,8 +29,7 @@ public sealed class TelemetryCatalogProviderTests
             Assert.Equal("Spanish Grand Prix", Assert.Single(year.Sessions).GrandPrix);
 
             var motorcycles = Assert.Single(catalog.Categories, category => category.Key == "motorcycles");
-            var sbk = Assert.Single(motorcycles.Series, series => series.Key == "worldsbk");
-            Assert.Contains(sbk.Datasets, dataset => dataset.Name == "Kawasaki Ninja 400 SSP300");
+            Assert.Single(motorcycles.Series, series => series.Key == "motogp");
 
             var simulators = Assert.Single(catalog.Categories, category => category.Key == "simulators");
             var assettoSeries = Assert.Single(simulators.Series, series => series.Key == "assetto-corsa");

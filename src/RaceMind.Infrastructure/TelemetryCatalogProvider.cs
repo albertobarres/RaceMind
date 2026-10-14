@@ -44,25 +44,12 @@ public sealed class TelemetryCatalogProvider(string dataRoot) : ITelemetryCatalo
     {
         var motorcycleRoot = Path.Combine(_telemetryRoot, "Motos");
         var motoGpRoot = Path.Combine(motorcycleRoot, "MotoGP");
-        var worldSbkRoot = Path.Combine(motorcycleRoot, "WorldSBK");
         var motoGpYears = BuildMotoGpYears(motoGpRoot);
         var motoGpDatasets = Directory.Exists(motoGpRoot) ? BuildDatasets(motoGpRoot) : Array.Empty<TelemetryDataset>();
-        var worldSbkDatasets = Directory.Exists(worldSbkRoot)
-            ? BuildDatasets(worldSbkRoot)
-            : Directory.Exists(motorcycleRoot)
-                ? Directory.EnumerateDirectories(motorcycleRoot)
-                    .Where(path => !Path.GetFileName(path).Equals("MotoGP", StringComparison.OrdinalIgnoreCase))
-                    .SelectMany(path => Directory.EnumerateDirectories(path)
-                        .Select(BuildDirectoryDataset)
-                        .DefaultIfEmpty(BuildDirectoryDataset(path)))
-                    .OrderBy(dataset => dataset.Name, StringComparer.OrdinalIgnoreCase)
-                    .ToArray()
-                : Array.Empty<TelemetryDataset>();
 
         return new[]
         {
-            new TelemetrySeries("motogp", "MotoGP", motoGpYears, motoGpDatasets),
-            new TelemetrySeries("worldsbk", "WorldSBK", Array.Empty<TelemetryYear>(), worldSbkDatasets)
+            new TelemetrySeries("motogp", "MotoGP", motoGpYears, motoGpDatasets)
         };
     }
 

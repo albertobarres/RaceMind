@@ -130,7 +130,7 @@ El backend permite por defecto el origen `http://localhost:5173` (Vite). Puede c
 3. En otra terminal ejecutar `cd web`, `npm install` y `npm run dev`.
 4. Abrir `http://localhost:5173`.
 
-La UI inicial usa React + TypeScript y gráficos SVG ligeros, sin añadir una dependencia de charting. El usuario expande categoría, modalidad, año y evento. En sesiones F1, al seleccionar la sesión aparecen pilotos y comparación de telemetría. MotoGP carga calendario, clasificación y tabla agregada de vueltas desde XLSX; las llamadas a API son independientes del proveedor F1. WorldSBK/Kawasaki y los simuladores aparecen como fuentes futuras hasta implementar sus adaptadores. El comparador F1 obtiene del backend 201 puntos interpolados. Se puede apuntar a otra URL de API con `web/.env.local`:
+La UI inicial usa React + TypeScript y gráficos SVG ligeros, sin añadir una dependencia de charting. El usuario expande categoría, modalidad, año y evento. En sesiones F1, al seleccionar la sesión aparecen pilotos y comparación de telemetría. MotoGP carga calendario, clasificación y tabla agregada de vueltas desde XLSX; las llamadas a API son independientes del proveedor F1. La navegación de motos muestra MotoGP. El comparador F1 obtiene del backend 201 puntos interpolados. Se puede apuntar a otra URL de API con `web/.env.local`:
 
 ```text
 VITE_API_BASE_URL=http://localhost:5080/api
