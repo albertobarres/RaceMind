@@ -275,25 +275,48 @@ function CatalogYear(props: CatalogYearProps) {
   const { year, search, selectedSessionId, selectedYear, onChooseF1Session } = props;
   const [expanded, setExpanded] = useState(false);
   const sessions = year.sessions.filter((session) => sessionMatchesSearch(session, search));
+  const grandPrixGroups = Array.from(sessions.reduce((groups, session) => {
+    const group = groups.get(session.grandPrix) ?? [];
+    group.push(session);
+    groups.set(session.grandPrix, group);
+    return groups;
+  }, new Map<string, SessionSummary[]>()).entries());
   return (
     <div className="catalog-year">
       <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-year-toggle" title={year.year.toString()}>{year.year}</TreeToggle>
       {expanded && <div className="catalog-session-children">
-        {sessions.map((session) => (
-          <button
-            key={session.id}
-            className={`catalog-session ${selectedSessionId === session.id && selectedYear === year.year ? 'selected' : ''}`}
-            title={`${formatGrandPrix(session.grandPrix)} · ${session.sessionName}`}
-            onClick={() => onChooseF1Session(year.year, session.id)}
-          >
-            <span className="catalog-session-icon"><Flag size={13} /></span>
-            <span className="catalog-session-text"><strong>{formatGrandPrix(session.grandPrix)}</strong><small>{session.sessionName}</small></span>
-          </button>
+        {grandPrixGroups.map(([grandPrix, grandPrixSessions]) => (
+          <F1GrandPrix key={grandPrix} year={year.year} grandPrix={grandPrix} sessions={grandPrixSessions} selectedSessionId={selectedSessionId} selectedYear={selectedYear} onChooseSession={onChooseF1Session} />
         ))}
         {sessions.length === 0 && <div className="catalog-empty">No hay sesiones en este año.</div>}
       </div>}
     </div>
   );
+}
+
+function F1GrandPrix({ year, grandPrix, sessions, selectedSessionId, selectedYear, onChooseSession }: {
+  readonly year: number;
+  readonly grandPrix: string;
+  readonly sessions: SessionSummary[];
+  readonly selectedSessionId: string;
+  readonly selectedYear: number | null;
+  readonly onChooseSession: (year: number, id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return <div className="catalog-year">
+    <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-year-toggle" title={grandPrix}>{formatGrandPrix(grandPrix)}</TreeToggle>
+    {expanded && <div className="catalog-session-children">
+      {sessions.map((session) => <button
+        key={session.id}
+        className={`catalog-session ${selectedSessionId === session.id && selectedYear === year ? 'selected' : ''}`}
+        title={`${formatGrandPrix(session.grandPrix)} · ${session.sessionName}`}
+        onClick={() => onChooseSession(year, session.id)}
+      >
+        <span className="catalog-session-icon"><Flag size={13} /></span>
+        <span className="catalog-session-text"><strong>{session.sessionName}</strong></span>
+      </button>)}
+    </div>}
+  </div>;
 }
 
 function CatalogDataset({ dataset, enabled, selected = false, onClick }: { readonly dataset: TelemetryDataset; readonly enabled: boolean; readonly selected?: boolean; readonly onClick?: () => void }) {
