@@ -10,23 +10,20 @@ public sealed class TracingInsightsF1DataProvider(string dataRoot) : IF1DataProv
     private readonly string _dataRoot = ResolveF1Root(Path.GetFullPath(dataRoot));
     private readonly Dictionary<int, IReadOnlyList<SessionLocation>> _sessionsByYear = [];
 
-    public Task<IReadOnlyList<SessionSummary>> GetSessionsAsync(int year, CancellationToken _)
+    public Task<IReadOnlyList<SessionSummary>> GetSessionsAsync(int year, CancellationToken cancellationToken)
     {
         var result = new List<SessionSummary>();
         foreach (var location in GetSessionLocations(year))
         {
-            var details = ReadSession(year, location);
+            var details = cancellationToken.IsCancellationRequested ? null : ReadSession(year, location);
 
-            if (details is not null)
-            {
-                result.Add(new SessionSummary(
+            result.Add(new SessionSummary(
                 year,
                 $"{year}/{location.GrandPrix}/{location.SessionName}",
                 location.GrandPrix,
                 location.SessionName,
-                details.Drivers.Count,
-                details.Drivers.Sum(driver => driver.LapCount)));
-            }
+                details?.Drivers.Count,
+                details?.Drivers.Sum(driver => driver.LapCount)));
         }
 
         IReadOnlyList<SessionSummary> sorted = result
