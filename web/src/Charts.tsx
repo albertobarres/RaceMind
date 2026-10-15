@@ -47,7 +47,7 @@ export function SeriesChart({ title, unit, comparison, series, format, range }: 
           <span>{unit}</span>
         </div>
         <div className="chart-legend">
-          {series.map((item) => <span key={item.key}><i style={{ background: item.color }} />{item.label}</span>)}
+          {series.map((item) => <span key={item.key} style={{ color: item.color }}><i style={{ background: item.color }} />{item.label}</span>)}
         </div>
       </div>
       <div className="chart-scroll">

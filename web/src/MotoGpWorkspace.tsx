@@ -12,6 +12,7 @@ interface MotoGpWorkspaceProps {
 export function MotoGpWorkspace({ details, lapRecords }: MotoGpWorkspaceProps) {
   const [selectedRider, setSelectedRider] = useState('');
   const riders = useMemo(() => aggregateRiders(lapRecords), [lapRecords]);
+  const bestLapByRider = new Map(riders.map((rider) => [rider.key, rider.bestLap]));
   const visibleRecords = selectedRider
     ? lapRecords.filter((record) => riderKey(record) === selectedRider)
     : lapRecords;
@@ -79,7 +80,7 @@ export function MotoGpWorkspace({ details, lapRecords }: MotoGpWorkspaceProps) {
           <div className="motogp-table-wrap lap-record-table-wrap">
             <table className="motogp-table lap-record-table">
               <thead><tr><th>RIDER</th><th>POS</th><th>LAP</th><th>LAP TIME</th><th>T1</th><th>T2</th><th>T3</th><th>T4</th><th>SPEED</th><th>PIT</th><th>RUN</th><th>FRONT TYRE</th><th>REAR TYRE</th></tr></thead>
-              <tbody>{visibleRecords.map((record, index) => <LapRecordRow key={`${record.riderNumber}-${record.lapNumber}-${index}`} record={record} />)}</tbody>
+              <tbody>{visibleRecords.map((record, index) => <LapRecordRow key={`${record.riderNumber}-${record.lapNumber}-${index}`} record={record} bestLap={bestLapByRider.get(riderKey(record)) ?? null} />)}</tbody>
             </table>
             {visibleRecords.length === 0 && <div className="catalog-empty">No hay vueltas que mostrar.</div>}
           </div>
@@ -315,17 +316,19 @@ function MetricCard({ icon, label, value, detail }: { readonly icon: React.React
 }
 
 function ClassificationRow({ result }: { readonly result: MotoGpRiderResult }) {
-  return <tr>
-    <td><span className={`position-number ${result.position <= 3 ? 'podium' : ''}`} title={`Position ${result.position || 'not classified'}`}>{result.position || '—'}</span></td>
-    <td><strong title={`${result.rider} · #${result.riderNumber}`}>{result.rider}</strong><small>#{result.riderNumber}</small></td>
+  const isOut = result.status?.toUpperCase() === 'OUTSTND';
+  return <tr className={isOut ? 'outstnd' : undefined}>
+    <td><span className={`position-number ${result.position <= 3 ? `podium podium-${result.position}` : ''} ${isOut ? 'outstnd-position' : ''}`} title={`Position ${result.position || 'not classified'}`}>{result.position || '—'}</span></td>
+    <td><strong className={isOut ? 'outstnd-rider' : undefined} title={`${result.rider} · #${result.riderNumber}`}>{result.rider}</strong><small>#{result.riderNumber}</small></td>
     <td title={result.team || 'Team unavailable'}>{result.team || '—'}</td><td title={result.bike || 'Bike unavailable'}>{result.bike || '—'}</td><td>{result.laps ?? '—'}</td>
-    <td className="time-cell" title={result.bestLap ?? 'Best lap unavailable'}>{result.bestLap ?? '—'}</td><td title={formatSpeed(result.topSpeedKph)}>{formatSpeed(result.topSpeedKph)}</td><td title={result.gap ?? 'Gap unavailable'}>{result.gap ?? '—'}</td><td><span className="motogp-status" title={result.status ?? 'Status unavailable'}>{result.status ?? '—'}</span></td>
+    <td className={`time-cell ${isValidLapTime(result.bestLap) ? 'best-lap-time' : ''}`} title={result.bestLap ?? 'Best lap unavailable'}>{result.bestLap ?? '—'}</td><td title={formatSpeed(result.topSpeedKph)}>{formatSpeed(result.topSpeedKph)}</td><td title={result.gap ?? 'Gap unavailable'}>{result.gap ?? '—'}</td><td><span className={`motogp-status ${isOut ? 'outstnd-status' : ''}`} title={result.status ?? 'Status unavailable'}>{result.status ?? '—'}</span></td>
   </tr>;
 }
 
-function LapRecordRow({ record }: { readonly record: MotoGpLapRecord }) {
+function LapRecordRow({ record, bestLap }: { readonly record: MotoGpLapRecord; readonly bestLap: string | null }) {
+  const isBestLap = bestLap != null && isValidLapTime(record.lapTime) && compareLapTime(record.lapTime, bestLap) === 0;
   return <tr>
-    <td><strong title={`${record.rider} · #${record.riderNumber}`}>{record.rider}</strong></td><td>{record.position || '—'}</td><td>{record.lapNumber}</td><td className="time-cell" title={record.lapTime ?? 'Lap time unavailable'}>{record.lapTime ?? '—'}</td>
+    <td><strong title={`${record.rider} · #${record.riderNumber}`}>{record.rider}</strong></td><td>{record.position || '—'}</td><td>{record.lapNumber}</td><td className={`time-cell ${isBestLap ? 'best-lap-time' : ''}`} title={record.lapTime ?? 'Lap time unavailable'}>{record.lapTime ?? '—'}</td>
     <td>{record.sector1 ?? '—'}</td><td>{record.sector2 ?? '—'}</td><td>{record.sector3 ?? '—'}</td><td>{record.sector4 ?? '—'}</td>
     <td>{formatSpeed(record.speedKph)}</td><td>{record.pit ?? '—'}</td><td>{record.run ?? '—'}</td><td>{record.frontTyre ?? '—'}</td><td>{record.rearTyre ?? '—'}</td>
   </tr>;

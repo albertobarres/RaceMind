@@ -708,8 +708,11 @@
 }
 
 .motogp-table .time-cell {
-  color: var(--green);
   font-family: 'DM Mono', monospace;
+}
+
+.motogp-table .time-cell.best-lap-time {
+  color: var(--green);
 }
 
 .motogp-table .position-number {
@@ -723,9 +726,24 @@
   font: 500 11px 'DM Mono', monospace;
 }
 
-.motogp-table .position-number.podium {
-  color: #18221e;
-  background: var(--green);
+.motogp-table .position-number.podium-1 {
+  color: #342607;
+  background: #f2c14e;
+}
+
+.motogp-table .position-number.podium-2 {
+  color: #252a30;
+  background: #c4cbd2;
+}
+
+.motogp-table .position-number.podium-3 {
+  color: #352315;
+  background: #c9824b;
+}
+
+.motogp-table .outstnd-position {
+  color: #ffe3e3;
+  background: #a72e39;
 }
 
 .motogp-status {
@@ -735,6 +753,12 @@
   color: #a7d6bf;
   background: #202a25;
   font: 9px 'DM Mono', monospace;
+}
+
+.motogp-status.outstnd-status {
+  border-color: #84323a;
+  color: #ff9da4;
+  background: #3b1f24;
 }
 
 .lap-record-table {

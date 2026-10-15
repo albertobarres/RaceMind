@@ -145,7 +145,7 @@ function AssettoChart({ title, unit, points, range, zeroLine, labels = ['REFEREN
   const width = 760; const height = 225; const left = 54; const right = 12; const top = 28; const bottom = 28;
   const x = (value: number) => left + value * (width - left - right);
   const y = (value: number) => top + (max - value) / (max - min) * (height - top - bottom);
-  return <section className="assetto-chart-card"><header><div><h3>{title}</h3><span>{unit}</span></div><div className="assetto-chart-legend">{labels.map((label, index) => <span key={label}><i style={{ background: lineColors[index] }} />{label}</span>)}</div></header>
+  return <section className="assetto-chart-card"><header><div><h3>{title}</h3><span>{unit}</span></div><div className="assetto-chart-legend">{labels.map((label, index) => <span key={label} style={{ color: lineColors[index] }}><i style={{ background: lineColors[index] }} />{label}</span>)}</div></header>
     <div className="assetto-chart-scroll"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title}, plotted by lap distance`}>
       {Array.from({ length: 5 }, (_, index) => { const value = min + (max - min) * index / 4; return <g key={index}><line x1={left} x2={width - right} y1={y(value)} y2={y(value)} className="assetto-gridline" /><text x={left - 7} y={y(value) + 3} textAnchor="end" className="assetto-axis-label">{value.toFixed(1)}</text></g>; })}
       {zeroLine && min < 0 && max > 0 && <line x1={left} x2={width - right} y1={y(0)} y2={y(0)} className="assetto-zero-line" />}
