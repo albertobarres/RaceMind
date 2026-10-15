@@ -44,10 +44,10 @@ Prefijo: `/api`
 Grand Prix y session name son segmentos URL. Por ejemplo:
 
 ```text
-GET http://localhost:5080/api/2026/cars/f1/sessions
-GET http://localhost:5080/api/2026/cars/f1/sessions/Spanish%20Grand%20Prix/Race
-GET http://localhost:5080/api/2026/cars/f1/sessions/Spanish%20Grand%20Prix/Race/drivers/VER/laps
-GET http://localhost:5080/api/2026/cars/f1/sessions/Spanish%20Grand%20Prix/Race/drivers/VER/laps/compare?referenceLap=10&comparedLap=11
+GET http://localhost:5171/api/2026/cars/f1/sessions
+GET http://localhost:5171/api/2026/cars/f1/sessions/Spanish%20Grand%20Prix/Race
+GET http://localhost:5171/api/2026/cars/f1/sessions/Spanish%20Grand%20Prix/Race/drivers/VER/laps
+GET http://localhost:5171/api/2026/cars/f1/sessions/Spanish%20Grand%20Prix/Race/drivers/VER/laps/compare?referenceLap=10&comparedLap=11
 ```
 
 Errores previstos: `404` para sesión/piloto/vuelta inexistente, `400` para parámetros inválidos y `422` si las vueltas cargan pero no pueden compararse por calidad/orden de muestras. El endpoint de telemetría devuelve `404` si no existe o la vuelta no supera el mínimo de muestras.
@@ -125,7 +125,7 @@ Convención del delta: **comparada menos referencia**. Delta positivo significa 
 
 El backend permite por defecto el origen `http://localhost:5173` (Vite). Puede cambiarse mediante `Frontend:Origin`.
 
-1. Iniciar el backend desde la raíz del repositorio: `dotnet run --project src/RaceMind.Api --urls http://localhost:5080`.
+1. Iniciar el backend desde la raíz del repositorio: `dotnet run --project src/RaceMind.Api --urls http://localhost:5171`.
 2. Instalar Node.js LTS si no está instalado.
 3. En otra terminal ejecutar `cd web`, `npm install` y `npm run dev`.
 4. Abrir `http://localhost:5173`.
@@ -133,7 +133,7 @@ El backend permite por defecto el origen `http://localhost:5173` (Vite). Puede c
 La UI inicial usa React + TypeScript y gráficos SVG ligeros, sin añadir una dependencia de charting. El usuario expande categoría, modalidad, año y evento. En sesiones F1, al seleccionar la sesión aparecen pilotos y comparación de telemetría. MotoGP carga calendario, clasificación y tabla agregada de vueltas desde XLSX; las llamadas a API son independientes del proveedor F1. La navegación de motos muestra MotoGP. El comparador F1 obtiene del backend 201 puntos interpolados. Se puede apuntar a otra URL de API con `web/.env.local`:
 
 ```text
-VITE_API_BASE_URL=http://localhost:5080/api
+VITE_API_BASE_URL=http://localhost:5171/api
 ```
 
 ## Limitaciones conocidas de esta primera base
