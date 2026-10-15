@@ -51,14 +51,14 @@ Los ficheros completos de telemetría no se versionan en este repositorio. Consu
 Requiere .NET 10 SDK. Desde esta carpeta:
 
 ```bash
-dotnet run --project src/RaceMind.Api --urls http://localhost:5080
+dotnet run --project src/RaceMind.Api --urls http://localhost:5171
 ```
 
 La API intenta localizar `Telemetría` en una carpeta padre. Si el dataset está en otra ruta, define `TelemetryDataRoot` como variable de entorno/configuración y apunta a la raíz con `Coches`, `Motos` y `Simuladores`. El catálogo agrupa fuentes por categoría y modalidad; las rutas analíticas F1 incluyen el año, por ejemplo `/api/2026/cars/f1/sessions`. Ejemplo PowerShell:
 
 ```powershell
 $env:TelemetryDataRoot = "C:\ruta\a\Telemetría"
-dotnet run --project src/RaceMind.Api --urls http://localhost:5080
+dotnet run --project src/RaceMind.Api --urls http://localhost:5171
 ```
 
 La API no importa ni copia los 10 GB al repositorio: cataloga nombres de eventos/sesiones desde las carpetas y abre resúmenes y telemetría bajo demanda. La interfaz muestra un mensaje de carga, no selecciona evento ni piloto automáticamente y espera a que el usuario tome esas decisiones. Endpoints y guía de pantallas: [`docs/api-and-frontend.md`](docs/api-and-frontend.md).
@@ -73,7 +73,7 @@ npm install
 npm run dev
 ```
 
-Vite sirve el dashboard en `http://localhost:5173` y consume la API en `http://localhost:5080/api`. Se puede cambiar la URL creando `web/.env.local` a partir de `.env.example`.
+Vite sirve el dashboard en `http://localhost:5173` y consume la API en `http://localhost:5171/api`. Se puede cambiar la URL creando `web/.env.local` a partir de `.env.example`.
 
 Pruebas:
 
