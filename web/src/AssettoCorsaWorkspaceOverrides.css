@@ -7,3 +7,18 @@
 .assetto-specs > div:nth-child(2) strong {
   font-size: 12px;
 }
+
+.assetto-chart-legend-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.assetto-chart-legend-toggle:not(.is-active) {
+  opacity: .4;
+}

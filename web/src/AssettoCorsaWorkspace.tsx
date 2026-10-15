@@ -89,7 +89,7 @@ export function AssettoCorsaWorkspace({ details, comparison, comparisonLoading, 
         </div>}
         {comparison && <div className="assetto-charts-grid">
           <AssettoChart title="Speed trace" unit="km/h" points={comparison.points.map((point) => ({ x: point.relativeDistance, first: point.reference.speedKph, second: point.compared.speedKph }))} />
-          <AssettoChart title="Throttle & brake" unit="input · 0–1" range={[0, 1]} points={comparison.points.map((point) => ({ x: point.relativeDistance, first: point.reference.throttle, second: point.compared.throttle, third: point.reference.brake, fourth: point.compared.brake }))} labels={['THROTTLE REF', 'THROTTLE COMP', 'BRAKE REF', 'BRAKE COMP']} colors={[colors.reference, colors.compared, '#68aaff', '#bb8bf3']} />
+          <AssettoChart title="Throttle & brake" unit="input · 0–1" range={[0, 1]} points={comparison.points.map((point) => ({ x: point.relativeDistance, first: point.reference.throttle, second: point.compared.throttle, third: point.reference.brake, fourth: point.compared.brake }))} labels={['THROTTLE REF', 'THROTTLE COMP', 'BRAKE REF', 'BRAKE COMP']} colors={[colors.reference, colors.compared, '#68aaff', '#bb8bf3']} toggleable />
           <AssettoChart title="Time delta" unit="seconds · compared − reference" points={comparison.points.map((point) => ({ x: point.relativeDistance, first: point.deltaElapsedSeconds }))} zeroLine />
           <AssettoChart title="Lateral acceleration" unit="g" points={comparison.points.map((point) => ({ x: point.relativeDistance, first: point.reference.lateralG, second: point.compared.lateralG }))} />
         </div>}
@@ -133,10 +133,11 @@ function TrackMap({ details }: { readonly details: AssettoSessionDetails }) {
   </svg></div>;
 }
 
-function AssettoChart({ title, unit, points, range, zeroLine, labels = ['REFERENCE', 'COMPARED'], colors: lineColors = [colors.reference, colors.compared] }: {
+function AssettoChart({ title, unit, points, range, zeroLine, labels = ['REFERENCE', 'COMPARED'], colors: lineColors = [colors.reference, colors.compared], toggleable = false }: {
   readonly title: string; readonly unit: string; readonly points: { x: number; first: number; second?: number; third?: number; fourth?: number }[];
-  readonly range?: [number, number]; readonly zeroLine?: boolean; readonly labels?: string[]; readonly colors?: string[];
+  readonly range?: [number, number]; readonly zeroLine?: boolean; readonly labels?: string[]; readonly colors?: string[]; readonly toggleable?: boolean;
 }) {
+  const [visibleSeries, setVisibleSeries] = useState<number[]>(() => labels.map((_, index) => index));
   const values = points.flatMap((point) => [point.first, point.second, point.third, point.fourth].filter((value): value is number => value != null));
   let min = range?.[0] ?? Math.min(...values); let max = range?.[1] ?? Math.max(...values);
   if (max - min < 0.00001) { min -= 1; max += 1; }
@@ -145,11 +146,16 @@ function AssettoChart({ title, unit, points, range, zeroLine, labels = ['REFEREN
   const width = 760; const height = 225; const left = 54; const right = 12; const top = 28; const bottom = 28;
   const x = (value: number) => left + value * (width - left - right);
   const y = (value: number) => top + (max - value) / (max - min) * (height - top - bottom);
-  return <section className="assetto-chart-card"><header><div><h3>{title}</h3><span>{unit}</span></div><div className="assetto-chart-legend">{labels.map((label, index) => <span key={label} style={{ color: lineColors[index] }}><i style={{ background: lineColors[index] }} />{label}</span>)}</div></header>
+  return <section className="assetto-chart-card"><header><div><h3>{title}</h3><span>{unit}</span></div><div className="assetto-chart-legend">{labels.map((label, index) => {
+    const isVisible = visibleSeries.includes(index);
+    return toggleable
+      ? <button type="button" key={label} className={`assetto-chart-legend-toggle ${isVisible ? 'is-active' : ''}`} style={{ color: lineColors[index] }} onClick={() => setVisibleSeries((current) => isVisible ? current.filter((item) => item !== index) : [...current, index])} aria-pressed={isVisible} aria-label={`${isVisible ? 'Hide' : 'Show'} ${label}`}><i style={{ background: lineColors[index] }} />{label}</button>
+      : <span key={label} style={{ color: lineColors[index] }}><i style={{ background: lineColors[index] }} />{label}</span>;
+  })}</div></header>
     <div className="assetto-chart-scroll"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title}, plotted by lap distance`}>
       {Array.from({ length: 5 }, (_, index) => { const value = min + (max - min) * index / 4; return <g key={index}><line x1={left} x2={width - right} y1={y(value)} y2={y(value)} className="assetto-gridline" /><text x={left - 7} y={y(value) + 3} textAnchor="end" className="assetto-axis-label">{value.toFixed(1)}</text></g>; })}
       {zeroLine && min < 0 && max > 0 && <line x1={left} x2={width - right} y1={y(0)} y2={y(0)} className="assetto-zero-line" />}
-      {series.map((key, seriesIndex) => { const selected = points.filter((point) => point[key] != null); if (selected.length === 0) return null; const path = selected.map((point, index) => `${index ? 'L' : 'M'}${x(point.x)},${y(point[key]!)}`).join(' '); return <path key={key} d={path} fill="none" stroke={lineColors[seriesIndex]} strokeWidth="2.1" strokeLinejoin="round" strokeLinecap="round" />; })}
+      {series.map((key, seriesIndex) => { if (toggleable && !visibleSeries.includes(seriesIndex)) return null; const selected = points.filter((point) => point[key] != null); if (selected.length === 0) return null; const path = selected.map((point, index) => `${index ? 'L' : 'M'}${x(point.x)},${y(point[key]!)}`).join(' '); return <path key={key} d={path} fill="none" stroke={lineColors[seriesIndex]} strokeWidth="2.1" strokeLinejoin="round" strokeLinecap="round" />; })}
       {[0, .25, .5, .75, 1].map((ratio) => <text key={ratio} x={x(ratio)} y={height - 7} textAnchor="middle" className="assetto-axis-label">{Math.round(ratio * 100)}%</text>)}
     </svg></div>
   </section>;

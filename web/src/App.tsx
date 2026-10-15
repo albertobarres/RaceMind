@@ -820,7 +820,7 @@ function ThrottleBrakeChart({ comparison, referenceLap, comparedLap }: { readonl
       { key: 'comparedThrottlePercent', label: `THROTTLE L${comparedLap}`, color: '#ffaf63' },
       { key: 'referenceBrakePercent', label: `BRAKE L${referenceLap}`, color: '#4b9ff5' },
       { key: 'comparedBrakePercent', label: `BRAKE L${comparedLap}`, color: '#bb8bf3' },
-    ]} range={[0, 100]} />
+    ]} range={[0, 100]} toggleable />
   );
 }
 

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { CornerSummary, LapComparison } from './types';
 
 type SeriesKey =
@@ -14,9 +14,12 @@ interface SeriesChartProps {
   readonly series: { readonly key: SeriesKey; readonly label: string; readonly color: string }[];
   readonly format?: (value: number) => string;
   readonly range?: [number, number];
+  readonly toggleable?: boolean;
 }
 
-export function SeriesChart({ title, unit, comparison, series, format, range }: SeriesChartProps) {
+export function SeriesChart({ title, unit, comparison, series, format, range, toggleable = false }: SeriesChartProps) {
+  const [visibleKeys, setVisibleKeys] = useState<SeriesKey[]>(() => series.map((item) => item.key));
+  const visibleSeries = toggleable ? series.filter((item) => visibleKeys.includes(item.key)) : series;
   const width = 900;
   const height = 190;
   const left = 52;
@@ -47,7 +50,12 @@ export function SeriesChart({ title, unit, comparison, series, format, range }: 
           <span>{unit}</span>
         </div>
         <div className="chart-legend">
-          {series.map((item) => <span key={item.key} style={{ color: item.color }}><i style={{ background: item.color }} />{item.label}</span>)}
+          {series.map((item) => {
+            const isVisible = visibleKeys.includes(item.key);
+            return toggleable
+              ? <button type="button" key={item.key} className={`chart-legend-toggle ${isVisible ? 'is-active' : ''}`} style={{ color: item.color }} onClick={() => setVisibleKeys((current) => isVisible ? current.filter((key) => key !== item.key) : [...current, item.key])} aria-pressed={isVisible} aria-label={`${isVisible ? 'Hide' : 'Show'} ${item.label}`}><i style={{ background: item.color }} />{item.label}</button>
+              : <span key={item.key} style={{ color: item.color }}><i style={{ background: item.color }} />{item.label}</span>;
+          })}
         </div>
       </div>
       <div className="chart-scroll">
@@ -68,7 +76,7 @@ export function SeriesChart({ title, unit, comparison, series, format, range }: 
               <text x={xx} y={height - 7} textAnchor="middle" className="axis-label">{Math.round(ratio * 100)}%</text>
             </g>;
           })}
-          {series.map((item) => {
+          {visibleSeries.map((item) => {
             const path = comparison.points.map((point, index) => {
               const value = point[item.key];
               return `${index === 0 ? 'M' : 'L'} ${x(point.relativeDistance).toFixed(2)} ${y(value).toFixed(2)}`;
@@ -77,7 +85,6 @@ export function SeriesChart({ title, unit, comparison, series, format, range }: 
           })}
         </svg>
       </div>
-      <div className="chart-axis-caption">Distancia relativa de vuelta</div>
     </section>
   );
 }
