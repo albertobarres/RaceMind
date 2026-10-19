@@ -660,14 +660,54 @@ function LapComparisonSection(props: {
       {comparison && <ReportPanel
         title="Oportunidades observadas"
         subtitle="Hallazgos derivados de la comparación seleccionada; no son recomendaciones ni conclusiones causales."
-        sourceNote="Se describen diferencias observadas entre dos vueltas. No se infieren causas ni se usa ML o IA generativa en este informe."
-        findings={buildF1Findings(comparison)}
+        chatContext={buildF1ChatContext(session, selectedDriver, reference, compared, comparison)}
+        sourceNote="Se describen diferencias observadas entre dos vueltas. La explicación generativa, si se solicita, se limita a estos hallazgos; no se infieren causas ni se usa ML."
+        findings={buildF1Findings(comparison, [reference?.sector1Seconds ?? null, reference?.sector2Seconds ?? null, reference?.sector3Seconds ?? null])}
         referenceLap={comparison.referenceLap}
         comparedLap={comparison.comparedLap}
       />}
       <div className="footer-note"><Timer size={14} /><span>ANALYSIS GENERATED FROM SOURCE TELEMETRY</span><i /><span>TRACEABLE · REPRODUCIBLE</span><span className="footer-right">RaceMind <b>v0.1</b></span></div>
     </section>
   );
+}
+
+function buildF1ChatContext(
+  session: SessionDetails,
+  driver: DriverSummary | null,
+  reference: LapSummary | null,
+  compared: LapSummary | null,
+  comparison: LapComparison,
+) {
+  const stats = (values: number[]) => values.length > 0
+    ? `media ${average(values).toFixed(2)}, mín ${Math.min(...values).toFixed(2)}, máx ${Math.max(...values).toFixed(2)}`
+    : 'sin datos';
+  const segments = Array.from({ length: 4 }, (_, segment) => {
+    const start = segment / 4;
+    const end = (segment + 1) / 4;
+    const points = comparison.points.filter((point) => point.relativeDistance >= start && (segment === 3 ? point.relativeDistance <= end : point.relativeDistance < end));
+    return `tramo ${segment + 1} (${segment * 25}–${(segment + 1) * 25}% distancia): delta acumulado final ${points.at(-1)?.deltaElapsedSeconds.toFixed(3) ?? 'sin datos'} s`;
+  });
+  const sectorDeltas = comparison.sectorDeltasSeconds.map((value, index) => `S${index + 1} ${value == null ? 'sin datos' : `${value.toFixed(3)} s`}`).join('; ');
+
+  return [
+    `Sesión F1: ${session.grandPrix}, ${session.sessionName}, ${session.year}; piloto ${driver?.fullName ?? driver?.code ?? 'no disponible'}.`,
+    `Condiciones visibles: temperatura ambiente ${formatPageMetric(session.weather?.airTemperatureCelsius, ' °C')}, pista ${formatPageMetric(session.weather?.trackTemperatureCelsius, ' °C')}, humedad ${formatPageMetric(session.weather?.humidityPercent, '%')}, viento ${formatPageMetric(session.weather?.windSpeedMetersPerSecond, ' m/s')}, lluvia ${session.weather?.rainfall == null ? 'no disponible' : session.weather.rainfall ? 'sí' : 'no'}.`,
+    `Vuelta de referencia ${comparison.referenceLap}: tiempo ${formatPageMetric(reference?.lapTimeSeconds, ' s')}, sectores ${reference ? [reference.sector1Seconds, reference.sector2Seconds, reference.sector3Seconds].map((value) => formatPageMetric(value, ' s')).join(' / ') : 'sin datos'}, neumático ${reference?.tyreCompound ?? 'no disponible'}, stint ${reference?.stint ?? 'no disponible'}.`,
+    `Vuelta comparada ${comparison.comparedLap}: tiempo ${formatPageMetric(compared?.lapTimeSeconds, ' s')}, sectores ${compared ? [compared.sector1Seconds, compared.sector2Seconds, compared.sector3Seconds].map((value) => formatPageMetric(value, ' s')).join(' / ') : 'sin datos'}, neumático ${compared?.tyreCompound ?? 'no disponible'}, stint ${compared?.stint ?? 'no disponible'}.`,
+    `Deltas sectoriales comparada − referencia: ${sectorDeltas}.`,
+    `Velocidad referencia: ${stats(comparison.points.map((point) => point.referenceSpeedKph))} km/h; comparada: ${stats(comparison.points.map((point) => point.comparedSpeedKph))} km/h.`,
+    `Acelerador referencia / comparada: ${stats(comparison.points.map((point) => point.referenceThrottlePercent))}% / ${stats(comparison.points.map((point) => point.comparedThrottlePercent))}%. Freno: ${stats(comparison.points.map((point) => point.referenceBrakePercent))}% / ${stats(comparison.points.map((point) => point.comparedBrakePercent))}%.`,
+    `Perfil del delta por distancia: ${segments.join('; ')}.`,
+    `Limitación: no se dispone aquí de temperatura de neumático ni aceleraciones longitudinales/laterales para esta fuente. Asociación temporal o por sector no demuestra causalidad.`,
+  ].join('\n');
+}
+
+function average(values: number[]) {
+  return values.reduce((sum, value) => sum + value, 0) / Math.max(1, values.length);
+}
+
+function formatPageMetric(value: number | null | undefined, suffix: string) {
+  return value == null || !Number.isFinite(value) ? 'no disponible' : `${value.toFixed(2)}${suffix}`;
 }
 
 function ComparisonHeading({ selectedDriver, driver }: { readonly selectedDriver: DriverSummary | null; readonly driver: string }) {

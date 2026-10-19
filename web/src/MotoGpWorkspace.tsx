@@ -52,7 +52,7 @@ export function MotoGpWorkspace({ details, lapRecords }: MotoGpWorkspaceProps) {
 
       <MotoGpAnalytics records={lapRecords} riders={riders} />
 
-      <LapComparison records={lapRecords} riders={riders} />
+          <LapComparison records={lapRecords} riders={riders} details={details} />
 
       <details className="motogp-details">
         <summary><span>Session classification</span><small>{standings.length} riders · result sheet</small></summary>
@@ -94,7 +94,7 @@ export function MotoGpWorkspace({ details, lapRecords }: MotoGpWorkspaceProps) {
 
 const riderChartColors = ['#73dfb2', '#ffaf63', '#68aaff', '#cb91ff'];
 
-function MotoGpAnalytics({ records, riders }: LapComparisonProps) {
+function MotoGpAnalytics({ records, riders }: Pick<LapComparisonProps, 'records' | 'riders'>) {
   const fastestRiders = useMemo(() => [...riders].filter((rider) => rider.bestLap != null)
     .sort((first, second) => compareLapTime(first.bestLap ?? '', second.bestLap ?? '')), [riders]);
   const [selectedRiders, setSelectedRiders] = useState<string[]>([]);
@@ -227,9 +227,10 @@ function SectorHeatmap({ records, riders }: { readonly records: MotoGpLapRecord[
 interface LapComparisonProps {
   readonly records: MotoGpLapRecord[];
   readonly riders: ReturnType<typeof aggregateRiders>;
+  readonly details: MotoGpSessionDetails;
 }
 
-function LapComparison({ records, riders }: LapComparisonProps) {
+function LapComparison({ records, riders, details }: LapComparisonProps) {
   const [riderKeySelection, setRiderKeySelection] = useState('');
   const [referenceLapSelection, setReferenceLapSelection] = useState<number | null>(null);
   const [comparedLapSelection, setComparedLapSelection] = useState<number | null>(null);
@@ -290,7 +291,8 @@ function LapComparison({ records, riders }: LapComparisonProps) {
           <ReportPanel
             title="Oportunidades observadas · MotoGP"
             subtitle={`Análisis agregado de ${rider?.name ?? 'piloto seleccionado'}; los registros disponibles contienen tiempos de vuelta y sector, no muestras continuas de telemetría.`}
-            sourceNote="Hallazgos limitados a diferencias de tiempos registradas. No se localizan en el trazado ni se atribuyen a una causa de pilotaje. No se usa ML ni IA generativa."
+            chatContext={buildMotoGpChatContext(details, records, rider?.name ?? null, reference, compared)}
+            sourceNote="Hallazgos limitados a diferencias de tiempos registradas. No se localizan en el trazado ni se atribuyen a una causa de pilotaje. La explicación generativa, si se solicita, se limita a estos datos; no se usa ML."
             findings={buildMotoGpFindings(reference, compared)}
             referenceLap={reference.lapNumber}
             comparedLap={compared.lapNumber}
@@ -299,6 +301,31 @@ function LapComparison({ records, riders }: LapComparisonProps) {
       </> : <div className="motogp-compare-empty"><Timer size={18} /><span><strong>No comparable lap times</strong><small>There are no lap records with a valid time for this session.</small></span></div>}
     </section>
   );
+}
+
+function buildMotoGpChatContext(
+  details: MotoGpSessionDetails,
+  records: MotoGpLapRecord[],
+  selectedRider: string | null,
+  reference: MotoGpLapRecord,
+  compared: MotoGpLapRecord,
+) {
+  const allRecords = records.map((record) =>
+    `piloto ${record.rider} #${record.riderNumber}, vuelta ${record.lapNumber}: tiempo ${record.lapTime ?? '—'}, sectores ${[record.sector1, record.sector2, record.sector3, record.sector4].map((value) => value ?? '—').join('/')}, velocidad ${record.speedKph == null ? '—' : `${record.speedKph} km/h`}, pit ${record.pit ?? '—'}, run ${record.run ?? '—'}, neumáticos ${record.frontTyre ?? '—'}/${record.rearTyre ?? '—'}`,
+  );
+  const results = details.results.map((result) =>
+    `P${result.position} ${result.rider} #${result.riderNumber}, equipo ${result.team}, moto ${result.bike}, vueltas ${result.laps ?? '—'}, mejor ${result.bestLap ?? '—'}, punta ${result.topSpeedKph == null ? '—' : `${result.topSpeedKph} km/h`}, estado ${result.status ?? '—'}`,
+  );
+  const comparisonDetail = `Comparación seleccionada del piloto ${selectedRider ?? reference.rider}: referencia vuelta ${reference.lapNumber} ${reference.lapTime ?? '—'} [S1 ${reference.sector1 ?? '—'}, S2 ${reference.sector2 ?? '—'}, S3 ${reference.sector3 ?? '—'}, S4 ${reference.sector4 ?? '—'}, velocidad ${reference.speedKph ?? '—'} km/h, pit ${reference.pit ?? '—'}, run ${reference.run ?? '—'}, neumáticos ${reference.frontTyre ?? '—'}/${reference.rearTyre ?? '—'}]; comparada vuelta ${compared.lapNumber} ${compared.lapTime ?? '—'} [S1 ${compared.sector1 ?? '—'}, S2 ${compared.sector2 ?? '—'}, S3 ${compared.sector3 ?? '—'}, S4 ${compared.sector4 ?? '—'}, velocidad ${compared.speedKph ?? '—'} km/h, pit ${compared.pit ?? '—'}, run ${compared.run ?? '—'}, neumáticos ${compared.frontTyre ?? '—'}/${compared.rearTyre ?? '—'}].`;
+
+  return [
+    `Evento ${details.session.eventName}, sesión ${details.session.sessionName}, circuito ${details.circuit ?? 'no disponible'}, fecha ${details.session.date ?? 'no disponible'}, condiciones ${details.session.weather ?? 'no disponibles'}.`,
+    `Indicadores visibles: ${details.results.length} resultados, ${records.length} registros de vuelta.`,
+    comparisonDetail,
+    `Clasificación visible: ${results.join('; ') || 'sin registros'}.`,
+    `Registros agregados de vuelta/sector visibles: ${allRecords.join('; ') || 'sin registros'}.`,
+    'Limitación: estos datos son agregados por vuelta y sector; no hay muestras temporales de velocidad, freno, aceleración o temperatura de neumático. No atribuir causalidad ni ubicar pérdidas en el trazado.',
+  ].join('\n');
 }
 
 function buildMotoGpFindings(reference: MotoGpLapRecord, compared: MotoGpLapRecord): Finding[] {

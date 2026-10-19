@@ -21,6 +21,13 @@ builder.Services.AddSingleton<IAssettoCorsaDataProvider>(_ =>
 builder.Services.AddSingleton<IKartingDataProvider>(_ =>
     new AimKartingCsvDataProvider(dataRoot ?? Path.Combine(Directory.GetCurrentDirectory(), "data")));
 builder.Services.AddSingleton<LapComparisonService>();
+builder.Services.AddHttpClient("RaceEngineer", client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddTransient<IRaceEngineerExplanationService>(serviceProvider =>
+    new OpenAiCompatibleRaceEngineerExplanationService(
+        serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient("RaceEngineer"),
+        builder.Configuration["GenerativeAI:Endpoint"],
+        builder.Configuration["GenerativeAI:ApiKey"],
+        builder.Configuration["GenerativeAI:Model"]));
 builder.Services.AddCors(options => options.AddPolicy("frontend", policy =>
 {
     var origin = builder.Configuration["Frontend:Origin"] ?? "http://localhost:5173";
@@ -33,6 +40,72 @@ app.UseCors("frontend");
 var api = app.MapGroup("/api").WithTags("RaceMind");
 
 api.MapGet("/health", () => Results.Ok(new { status = "ok", service = "RaceMind.Api" })).WithName("Health");
+
+api.MapPost("/race-engineer/explain", async Task<IResult> (
+    RaceEngineerExplanationRequest request,
+    IRaceEngineerExplanationService explanationService,
+    CancellationToken cancellationToken) =>
+{
+    if (!explanationService.IsConfigured)
+        return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+    if (request.ReferenceLap <= 0 || request.ComparedLap <= 0 || request.ReferenceLap == request.ComparedLap)
+        return Results.BadRequest(new { message = "Selecciona dos vueltas distintas y positivas." });
+    if (request.Findings is null || request.Findings.Count is 0 or > 8)
+        return Results.BadRequest(new { message = "El informe debe incluir entre 1 y 8 hallazgos." });
+
+    try
+    {
+        return Results.Ok(await explanationService.ExplainAsync(request, cancellationToken));
+    }
+    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+    {
+        throw;
+    }
+    catch (Exception exception)
+    {
+        app.Logger.LogWarning(exception, "Race Engineer explanation provider request failed.");
+        return Results.Json(new { message = exception.Message }, statusCode: StatusCodes.Status502BadGateway);
+    }
+})
+.WithName("ExplainRaceEngineerFindings");
+
+api.MapPost("/race-engineer/chat", async Task<IResult> (
+    RaceEngineerChatRequest request,
+    IRaceEngineerExplanationService explanationService,
+    CancellationToken cancellationToken) =>
+{
+    if (!explanationService.IsConfigured)
+        return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+    if (request.Report is null || request.Report.ReferenceLap <= 0 || request.Report.ComparedLap <= 0 ||
+        request.Report.ReferenceLap == request.Report.ComparedLap)
+        return Results.BadRequest(new { message = "El informe debe contener dos vueltas distintas y positivas." });
+    if (request.Report.Findings is null || request.Report.Findings.Count is 0 or > 8)
+        return Results.BadRequest(new { message = "El informe debe incluir entre 1 y 8 hallazgos." });
+    if (string.IsNullOrWhiteSpace(request.Question) || request.Question.Length > 1000)
+        return Results.BadRequest(new { message = "La pregunta debe tener entre 1 y 1000 caracteres." });
+    if (request.History is null || request.History.Count > 12 || request.History.Any(message =>
+        message.Role is not ("user" or "assistant") || string.IsNullOrWhiteSpace(message.Content) || message.Content.Length > 1000))
+        return Results.BadRequest(new { message = "El historial de chat no es válido o supera su límite." });
+
+    try
+    {
+        return Results.Ok(await explanationService.ChatAsync(request, cancellationToken));
+    }
+    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+    {
+        throw;
+    }
+    catch (ArgumentException exception)
+    {
+        return Results.BadRequest(new { message = exception.Message });
+    }
+    catch (Exception exception)
+    {
+        app.Logger.LogWarning(exception, "Race Engineer chat provider request failed.");
+        return Results.Json(new { message = exception.Message }, statusCode: StatusCodes.Status502BadGateway);
+    }
+})
+.WithName("ChatWithRaceEngineer");
 
 api.MapGet("/catalog", async (ITelemetryCatalogProvider provider, CancellationToken cancellationToken) =>
     Results.Ok(await provider.GetCatalogAsync(cancellationToken))).WithName("GetTelemetryCatalog");

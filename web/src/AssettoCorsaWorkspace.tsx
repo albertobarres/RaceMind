@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Activity, Gauge, Timer, TriangleAlert } from 'lucide-react';
 import type { AssettoLapComparison, AssettoSessionDetails } from './types';
 import { buildContinuousLapFindings, ReportPanel } from './RaceEngineerReport';
+import { useFindingHighlight } from './findingHighlight';
 import { api } from './api';
 import './AssettoCorsaWorkspace.css';
 import './AssettoCorsaWorkspaceOverrides.css';
@@ -96,8 +97,8 @@ export function AssettoCorsaWorkspace({ details, comparison, comparisonLoading, 
         </div>}
         {comparison && <ReportPanel
           title="Oportunidades observadas · Assetto Corsa"
-          subtitle="Diferencias descriptivas obtenidas de vueltas reconstruidas y alineadas por distancia recorrida."
-          sourceNote="Los hallazgos son observaciones de esta sesión simulada. La reconstrucción de vuelta usa proximidad al origen; no se atribuyen causas ni se usa ML o IA generativa."
+          subtitle={buildAssettoChatContext(details, reference, compared, comparison)}
+          sourceNote="Los hallazgos son observaciones de esta sesión simulada. La reconstrucción de vuelta usa proximidad al origen. La explicación generativa, si se solicita, se limita a estas observaciones; no se usa ML."
           findings={buildContinuousLapFindings(comparison)}
           referenceLap={comparison.referenceLap}
           comparedLap={comparison.comparedLap}
@@ -120,6 +121,73 @@ export function AssettoCorsaWorkspace({ details, comparison, comparisonLoading, 
       {details.laps.length > 0 && <p className="assetto-table-note">Samples = número de filas de telemetría registradas durante la vuelta.</p>}
     </section>
   </div>;
+}
+
+function buildAssettoChatContext(
+  details: AssettoSessionDetails,
+  reference: AssettoSessionDetails['laps'][number] | undefined,
+  compared: AssettoSessionDetails['laps'][number] | undefined,
+  comparison: AssettoLapComparison,
+) {
+  const average = (values: number[]) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+  const tyreRows = ([
+    ['delantera izquierda', 'tyreCoreFl'], ['delantera derecha', 'tyreCoreFr'],
+    ['trasera izquierda', 'tyreCoreRl'], ['trasera derecha', 'tyreCoreRr'],
+  ] as const).map(([label, key]) => {
+    const referenceValues = comparison.points.map((point) => point.reference[key]).filter(Number.isFinite);
+    const comparedValues = comparison.points.map((point) => point.compared[key]).filter(Number.isFinite);
+    const referenceTemperature = average(referenceValues);
+    const comparedTemperature = average(comparedValues);
+    return `${label}: referencia ${formatOptional(referenceTemperature, ' °C')} (mín ${formatOptional(referenceValues.length ? Math.min(...referenceValues) : null, ' °C')}, máx ${formatOptional(referenceValues.length ? Math.max(...referenceValues) : null, ' °C')}), comparada ${formatOptional(comparedTemperature, ' °C')} (mín ${formatOptional(comparedValues.length ? Math.min(...comparedValues) : null, ' °C')}, máx ${formatOptional(comparedValues.length ? Math.max(...comparedValues) : null, ' °C')})`;
+  });
+  const channelSummary = (
+    label: string,
+    read: (sample: AssettoLapComparison['points'][number]['reference']) => number,
+    suffix = '',
+  ) => {
+    const referenceValues = comparison.points.map((point) => read(point.reference)).filter(Number.isFinite);
+    const comparedValues = comparison.points.map((point) => read(point.compared)).filter(Number.isFinite);
+    const stats = (values: number[]) => values.length
+      ? `media ${formatOptional(average(values), suffix)}, mín ${formatOptional(Math.min(...values), suffix)}, máx ${formatOptional(Math.max(...values), suffix)}`
+      : 'sin datos válidos';
+    const segments = Array.from({ length: 4 }, (_, segment) => {
+      const start = segment / 4;
+      const end = (segment + 1) / 4;
+      const points = comparison.points.filter((point) => point.relativeDistance >= start && (segment === 3 ? point.relativeDistance <= end : point.relativeDistance < end));
+      const referenceSegment = points.map((point) => read(point.reference)).filter(Number.isFinite);
+      const comparedSegment = points.map((point) => read(point.compared)).filter(Number.isFinite);
+      return `${segment * 25}–${(segment + 1) * 25}% ref ${formatOptional(average(referenceSegment), suffix)} / comp ${formatOptional(average(comparedSegment), suffix)}`;
+    });
+    const meanReference = average(referenceValues);
+    const meanCompared = average(comparedValues);
+    return `${label} (valores normalizados en su unidad de gráfica): referencia ${stats(referenceValues)}; comparada ${stats(comparedValues)}; delta medio comparada − referencia ${formatOptional(meanCompared != null && meanReference != null ? meanCompared - meanReference : null, suffix)}. Medias por distancia relativa (referencia / comparada): ${segments.join('; ')}.`;
+  };
+
+  return [
+    `Sesión Assetto Corsa: coche ${details.car}, circuito ${details.circuit}.`,
+    `Contexto de sesión visible: ${details.sampleCount} muestras, ${formatDuration(details.durationSeconds)}, ${details.lapCount} vueltas detectadas, velocidad máxima de sesión ${formatOptional(details.peakSpeedKph, ' km/h')}, mejor vuelta ${details.bestLapSeconds == null ? 'no disponible' : `${details.bestLapSeconds.toFixed(3)} s`}.`,
+    `Ficha visible del coche: ${details.specs.maxRpm == null ? 'RPM máximo no disponible' : `${details.specs.maxRpm} rpm máximo`}, potencia ${formatPower(details.specs.maxPowerWatts)}, par ${formatOptional(details.specs.maxTorqueNm, ' Nm')}, capacidad de combustible ${formatOptional(details.specs.maxFuelLitres, ' L')}.`,
+    'Comparación alineada por distancia relativa; magnitudes descriptivas, no experimentales.',
+    reference && compared
+      ? `Vuelta de referencia ${reference.number}: ${reference.lapTimeSeconds.toFixed(3)} s, ${reference.averageSpeedKph.toFixed(1)} km/h de media, ${reference.maxSpeedKph.toFixed(1)} km/h de máximo, ${reference.maxRpm.toFixed(0)} rpm máximo, combustible ${reference.fuelStartLitres.toFixed(2)}→${reference.fuelEndLitres.toFixed(2)} L.`
+      : `Delta de vuelta: ${formatDelta(comparison.deltaLapTimeSeconds)}.`,
+    reference && compared
+      ? `Vuelta comparada ${compared.number}: ${compared.lapTimeSeconds.toFixed(3)} s, ${compared.averageSpeedKph.toFixed(1)} km/h de media, ${compared.maxSpeedKph.toFixed(1)} km/h de máximo, ${compared.maxRpm.toFixed(0)} rpm máximo, combustible ${compared.fuelStartLitres.toFixed(2)}→${compared.fuelEndLitres.toFixed(2)} L.`
+      : '',
+    `Delta de tiempo de vuelta comparada − referencia: ${formatDelta(comparison.deltaLapTimeSeconds)}.`,
+    `Temperatura media del núcleo de neumático por rueda (referencia / comparada): ${tyreRows.join('; ')}.`,
+    channelSummary('Velocidad', (sample) => sample.speedKph, ' km/h'),
+    channelSummary('Acelerador', (sample) => sample.throttle),
+    channelSummary('Freno', (sample) => sample.brake),
+    channelSummary('Aceleración lateral', (sample) => sample.lateralG, ' g'),
+    channelSummary('Aceleración longitudinal', (sample) => sample.longitudinalG, ' g'),
+    details.warnings.length ? `Advertencias de calidad visibles: ${details.warnings.join('; ')}.` : 'La vista no presenta advertencias de calidad de datos.',
+    'La comparación observacional no demuestra que la temperatura cause la diferencia de tiempo; para ello harían falta múltiples vueltas comparables y condiciones/control experimental.',
+  ].filter(Boolean).join('\n');
+}
+
+function formatOptional(value: number | null, suffix: string) {
+  return value == null || !Number.isFinite(value) ? 'no disponible' : `${value.toFixed(1)}${suffix}`;
 }
 
 function TrackMap({ details }: { readonly details: AssettoSessionDetails }) {
@@ -147,6 +215,7 @@ function AssettoChart({ title, unit, points, range, zeroLine, labels = ['REFEREN
   readonly range?: [number, number]; readonly zeroLine?: boolean; readonly labels?: string[]; readonly colors?: string[]; readonly toggleable?: boolean;
 }) {
   const [visibleSeries, setVisibleSeries] = useState<number[]>(() => labels.map((_, index) => index));
+  const highlightedRanges = useFindingHighlight();
   const values = points.flatMap((point) => [point.first, point.second, point.third, point.fourth].filter((value): value is number => value != null));
   let min = range?.[0] ?? Math.min(...values); let max = range?.[1] ?? Math.max(...values);
   if (max - min < 0.00001) { min -= 1; max += 1; }
@@ -161,8 +230,9 @@ function AssettoChart({ title, unit, points, range, zeroLine, labels = ['REFEREN
       ? <button type="button" key={label} className={`assetto-chart-legend-toggle ${isVisible ? 'is-active' : ''}`} style={{ color: lineColors[index] }} onClick={() => setVisibleSeries((current) => isVisible ? current.filter((item) => item !== index) : [...current, index])} aria-pressed={isVisible} aria-label={`${isVisible ? 'Hide' : 'Show'} ${label}`}><i style={{ background: lineColors[index] }} />{label}</button>
       : <span key={label} style={{ color: lineColors[index] }}><i style={{ background: lineColors[index] }} />{label}</span>;
   })}</div></header>
-    <div className="assetto-chart-scroll"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title}, plotted by lap distance`}>
-      {Array.from({ length: 5 }, (_, index) => { const value = min + (max - min) * index / 4; return <g key={index}><line x1={left} x2={width - right} y1={y(value)} y2={y(value)} className="assetto-gridline" /><text x={left - 7} y={y(value) + 3} textAnchor="end" className="assetto-axis-label">{value.toFixed(1)}</text></g>; })}
+    <div className="assetto-chart-scroll"><svg data-racemind-chart-anchor="true" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title}, plotted by lap distance`}>
+       {Array.from({ length: 5 }, (_, index) => { const value = min + (max - min) * index / 4; return <g key={index}><line x1={left} x2={width - right} y1={y(value)} y2={y(value)} className="assetto-gridline" /><text x={left - 7} y={y(value) + 3} textAnchor="end" className="assetto-axis-label">{value.toFixed(1)}</text></g>; })}
+      {highlightedRanges.map((highlight, index) => { const first = x(highlight.start); const last = x(highlight.end); return <g key={`finding-highlight-${index}`} pointerEvents="none">{Math.abs(last - first) < 2 ? <line x1={first} x2={first} y1={top} y2={height - bottom} className="finding-chart-cursor" /> : <rect x={first} y={top} width={last - first} height={height - top - bottom} className="finding-chart-range" />}</g>; })}
       {zeroLine && min < 0 && max > 0 && <line x1={left} x2={width - right} y1={y(0)} y2={y(0)} className="assetto-zero-line" />}
       {series.map((key, seriesIndex) => { if (toggleable && !visibleSeries.includes(seriesIndex)) return null; const selected = points.filter((point) => point[key] != null); if (selected.length === 0) return null; const path = selected.map((point, index) => `${index ? 'L' : 'M'}${x(point.x)},${y(point[key]!)}`).join(' '); return <path key={key} d={path} fill="none" stroke={lineColors[seriesIndex]} strokeWidth="2.1" strokeLinejoin="round" strokeLinecap="round" />; })}
       {[0, .25, .5, .75, 1].map((ratio) => <text key={ratio} x={x(ratio)} y={height - 7} textAnchor="middle" className="assetto-axis-label">{Math.round(ratio * 100)}%</text>)}

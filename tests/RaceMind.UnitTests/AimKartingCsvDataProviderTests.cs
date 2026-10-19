@@ -29,6 +29,9 @@ public sealed class AimKartingCsvDataProviderTests
             Assert.All(details.Laps, lap => Assert.True(lap.IsComparable));
             Assert.InRange(details.BestLapSeconds!.Value, 29.9, 30.1);
             Assert.Contains(details.Warnings, warning => warning.Contains("Segment Times y las diferencias", StringComparison.Ordinal));
+            Assert.Contains(details.Warnings, warning => warning.Contains("(N/1/2)", StringComparison.Ordinal));
+            Assert.Contains(details.Warnings, warning => warning.Contains("marcha N", StringComparison.Ordinal));
+            Assert.DoesNotContain(details.Warnings, warning => warning.Contains("marcha 0", StringComparison.Ordinal));
 
             var comparison = await provider.CompareLapsAsync("albaida-1-csv", 1, 2, 21, CancellationToken.None);
             Assert.NotNull(comparison);
@@ -67,7 +70,7 @@ public sealed class AimKartingCsvDataProviderTests
             var angle = time / 30d * 2 * Math.PI;
             var latitude = 38.8585 + 0.00112 * Math.Sin(angle);
             var longitude = -0.5268 + 0.00112 * Math.Cos(angle) / Math.Cos(38.8585 * Math.PI / 180);
-            var gear = Math.Abs(Math.Sin(time * 2)) < 0.01 ? 1.5 : Math.Sin(time) > 0 ? 2 : 1;
+            var gear = index % 100 < 5 ? 0 : Math.Abs(Math.Sin(time * 2)) < 0.01 ? 1.5 : Math.Sin(time) > 0 ? 2 : 1;
             output.Append('"').Append(time.ToString("F3", culture)).Append("\",\"")
                 .Append("94.25\",\"12\",\"7.3\",\"0.13\",\"0.1\",\"0.1\",\"")
                 .Append(latitude.ToString("F8", culture)).Append("\",\"")

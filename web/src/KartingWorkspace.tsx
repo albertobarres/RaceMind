@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Activity, Gauge, Timer, TriangleAlert } from 'lucide-react';
 import type { KartingLapComparison, KartingSessionDetails } from './types';
 import { buildContinuousLapFindings, ReportPanel } from './RaceEngineerReport';
+import { useFindingHighlight } from './findingHighlight';
 import './KartingWorkspace.css';
 import './KartingChartInteractions.css';
 
@@ -77,7 +78,8 @@ export function KartingWorkspace({ details, comparison, comparisonLoading, onCom
         {comparison && <ReportPanel
           title="Oportunidades observadas · Karting"
           subtitle="Diferencias descriptivas entre segmentos de vuelta comparables, alineados por distancia GPS."
-          sourceNote="Los segmentos se comparan tras filtros de calidad y provienen de una sesión de karting. Las diferencias no identifican causas de conducción; no se usa ML ni IA generativa."
+          chatContext={buildKartingChatContext(details, comparison)}
+          sourceNote="Los segmentos se comparan tras filtros de calidad y provienen de una sesión de karting. Las diferencias no identifican causas de conducción. La explicación generativa, si se solicita, se limita a estos datos; no se usa ML."
           findings={buildContinuousLapFindings(comparison)}
           referenceLap={comparison.referenceLap}
           comparedLap={comparison.comparedLap}
@@ -91,9 +93,52 @@ export function KartingWorkspace({ details, comparison, comparisonLoading, onCom
         <tbody>{details.laps.map((lap) => <tr key={lap.number} className={lap.number === bestLap?.number ? 'best' : ''}>
           <td>{lap.number}</td><td>{formatLapTime(lap.lapTimeSeconds)}</td><td>{lap.distanceMeters.toFixed(0)} m</td><td>{lap.averageSpeedKph.toFixed(1)} km/h</td><td>{lap.maxSpeedKph.toFixed(1)} km/h</td><td>{Math.round(lap.maxRpm).toLocaleString('es-ES')}</td><td>{lap.averageWaterTemperatureCelsius.toFixed(1)} °C</td><td>{lap.gearOneSamples.toLocaleString('es-ES')} / {lap.gearTwoSamples.toLocaleString('es-ES')}</td><td><span className={`karting-quality-badge ${lap.isComparable ? 'valid' : ''}`}>{lap.quality}</span></td>
         </tr>)}</tbody></table></div>
-      <p className="karting-note">Marchas discretizadas al estado más próximo (0, 1 o 2). La marcha 0 se conserva separada y no se suma a los contadores de las dos marchas engranadas.</p>
+      <p className="karting-note">Marchas discretizadas al estado más próximo (N, 1 o 2). La marcha N se conserva separada y no se suma a los contadores de las dos marchas engranadas.</p>
     </section>
   </div>;
+}
+
+function buildKartingChatContext(details: KartingSessionDetails, comparison: KartingLapComparison) {
+  const reference = details.laps.find((lap) => lap.number === comparison.referenceLap);
+  const compared = details.laps.find((lap) => lap.number === comparison.comparedLap);
+  const mean = (values: number[]) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+  const stats = (values: number[], suffix = '') => values.length
+    ? `media ${mean(values)!.toFixed(2)}${suffix}, mín ${Math.min(...values).toFixed(2)}${suffix}, máx ${Math.max(...values).toFixed(2)}${suffix}`
+    : 'sin datos';
+  const channelRows = ([
+    ['velocidad', (point: KartingLapComparison['points'][number], side: 'reference' | 'compared') => point[side].speedKph, ' km/h'],
+    ['RPM', (point: KartingLapComparison['points'][number], side: 'reference' | 'compared') => point[side].rpm, ' rpm'],
+    ['aceleración lateral', (point: KartingLapComparison['points'][number], side: 'reference' | 'compared') => point[side].lateralG, ' g'],
+    ['aceleración longitudinal', (point: KartingLapComparison['points'][number], side: 'reference' | 'compared') => point[side].longitudinalG, ' g'],
+    ['temperatura agua', (point: KartingLapComparison['points'][number], side: 'reference' | 'compared') => point[side].waterTemperatureCelsius, ' °C'],
+  ] as const).map(([label, read, suffix]) => {
+    const referenceValues = comparison.points.map((point) => read(point, 'reference')).filter(Number.isFinite);
+    const comparedValues = comparison.points.map((point) => read(point, 'compared')).filter(Number.isFinite);
+    const intervals = Array.from({ length: 4 }, (_, segment) => {
+      const start = segment / 4;
+      const end = (segment + 1) / 4;
+      const points = comparison.points.filter((point) => point.relativeDistance >= start && (segment === 3 ? point.relativeDistance <= end : point.relativeDistance < end));
+      return `${segment * 25}–${(segment + 1) * 25}% ref ${formatKpi(mean(points.map((point) => read(point, 'reference')).filter(Number.isFinite)), suffix)} / comp ${formatKpi(mean(points.map((point) => read(point, 'compared')).filter(Number.isFinite)), suffix)}`;
+    });
+    return `${label}: referencia ${stats(referenceValues, suffix)}; comparada ${stats(comparedValues, suffix)}; por tramos ${intervals.join('; ')}.`;
+  });
+  const gearSummary = (side: 'reference' | 'compared') => {
+    const counts = [0, 1, 2].map((gear) => comparison.points.filter((point) => point[side].gear === gear).length);
+    return `N/1/2: ${counts.map((count) => `${count} muestras`).join(' / ')}`;
+  };
+
+  return [
+    `Sesión de karting: piloto ${details.racer}, vehículo ${details.vehicle}, circuito ${details.circuit}, fecha ${details.date} ${details.sessionTime}, frecuencia ${details.sampleRateHz} Hz.`,
+    `Indicadores de sesión: ${details.sampleCount} muestras, duración ${details.durationSeconds.toFixed(1)} s, ${details.lapCount} segmentos, ${details.beaconCount} beacons, velocidad máxima ${details.peakSpeedKph.toFixed(1)} km/h, RPM máximo ${details.peakRpm.toFixed(0)}, temperatura del agua inicial/final ${details.startWaterTemperatureCelsius.toFixed(1)}/${details.endWaterTemperatureCelsius.toFixed(1)} °C, mejor vuelta ${details.bestLapSeconds == null ? 'no disponible' : `${details.bestLapSeconds.toFixed(3)} s`}.`,
+    `Vuelta de referencia ${comparison.referenceLap}: ${reference ? `${reference.lapTimeSeconds.toFixed(3)} s, ${reference.distanceMeters.toFixed(1)} m, velocidad media/máxima ${reference.averageSpeedKph.toFixed(1)}/${reference.maxSpeedKph.toFixed(1)} km/h, RPM máximo ${reference.maxRpm.toFixed(0)}, agua media ${reference.averageWaterTemperatureCelsius.toFixed(1)} °C, marchas 1/2 ${reference.gearOneSamples}/${reference.gearTwoSamples}, calidad ${reference.quality}` : 'resumen no disponible'}.`,
+    `Vuelta comparada ${comparison.comparedLap}: ${compared ? `${compared.lapTimeSeconds.toFixed(3)} s, ${compared.distanceMeters.toFixed(1)} m, velocidad media/máxima ${compared.averageSpeedKph.toFixed(1)}/${compared.maxSpeedKph.toFixed(1)} km/h, RPM máximo ${compared.maxRpm.toFixed(0)}, agua media ${compared.averageWaterTemperatureCelsius.toFixed(1)} °C, marchas 1/2 ${compared.gearOneSamples}/${compared.gearTwoSamples}, calidad ${compared.quality}` : 'resumen no disponible'}. Delta de vuelta comparada − referencia ${comparison.deltaLapTimeSeconds.toFixed(3)} s.`,
+    `Trazas comparativas (medias y extremos de los puntos alineados por distancia): ${channelRows.join(' ')} Marcha discreta N/1/2, referencia ${gearSummary('reference')}; comparada ${gearSummary('compared')}.`,
+    `Advertencias de calidad visibles: ${details.warnings.join('; ') || 'ninguna'}. Las relaciones observadas no prueban causalidad.`,
+  ].join('\n');
+}
+
+function formatKpi(value: number | null, suffix: string) {
+  return value == null || !Number.isFinite(value) ? 'no disponible' : `${value.toFixed(2)}${suffix}`;
 }
 
 function TrackMap({ details }: { readonly details: KartingSessionDetails }) {
@@ -126,6 +171,7 @@ function KartingChart({ title, unit, points, labels, range, zeroLine = false, to
   readonly tickValues?: number[]; readonly tickLabel?: (value: number) => string;
 }) {
   const [visibleSeries, setVisibleSeries] = useState<number[]>(() => labels.map((_, index) => index));
+  const highlightedRanges = useFindingHighlight();
   const values = points.flatMap((point) => [point.a, point.b, point.c, point.d].filter((value): value is number => value != null));
   let min = range?.[0] ?? Math.min(...values); let max = range?.[1] ?? Math.max(...values);
   if (max - min < 0.00001) { min -= 1; max += 1; }
@@ -141,8 +187,9 @@ function KartingChart({ title, unit, points, labels, range, zeroLine = false, to
       ? <button type="button" key={label} className={`karting-chart-legend-toggle ${active ? 'is-active' : ''}`} style={{ color: colors[index] }} onClick={() => setVisibleSeries((current) => active ? current.filter((item) => item !== index) : [...current, index])} aria-pressed={active} aria-label={`${active ? 'Ocultar' : 'Mostrar'} ${label}`}><i style={{ background: colors[index] }} />{label}</button>
       : <span key={label}><i style={{ background: colors[index] }} />{label}</span>;
   })}</div></header>
-    <div className="karting-chart-svg-wrap"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title} by lap distance`}>
-      {axisTicks.map((value) => <g key={value}><line x1={left} x2={width - right} y1={y(value)} y2={y(value)} className="karting-gridline" /><text x={left - 7} y={y(value) + 3} textAnchor="end" className="karting-axis-label">{tickLabel ? tickLabel(value) : value.toFixed(1)}</text></g>)}
+    <div className="karting-chart-svg-wrap"><svg data-racemind-chart-anchor="true" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title} by lap distance`}>
+       {axisTicks.map((value) => <g key={value}><line x1={left} x2={width - right} y1={y(value)} y2={y(value)} className="karting-gridline" /><text x={left - 7} y={y(value) + 3} textAnchor="end" className="karting-axis-label">{tickLabel ? tickLabel(value) : value.toFixed(1)}</text></g>)}
+      {highlightedRanges.map((highlight, index) => { const first = x(highlight.start); const last = x(highlight.end); return <g key={`finding-highlight-${index}`} pointerEvents="none">{Math.abs(last - first) < 2 ? <line x1={first} x2={first} y1={top} y2={height - bottom} className="finding-chart-cursor" /> : <rect x={first} y={top} width={last - first} height={height - top - bottom} className="finding-chart-range" />}</g>; })}
       {zeroLine && min < 0 && max > 0 && <line x1={left} x2={width - right} y1={y(0)} y2={y(0)} className="karting-zero-line" />}
       {keys.map((key, index) => { const selected = points.filter((point) => point[key] != null); if (!selected.length || !labels[index] || (toggleable && !visibleSeries.includes(index))) return null; return <path key={key} d={selected.map((point, position) => `${position ? 'L' : 'M'}${x(point.x)},${y(point[key]!)}`).join(' ')} fill="none" stroke={colors[index]} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />; })}
       {[0, .25, .5, .75, 1].map((value) => <text key={value} x={x(value)} y={height - 7} textAnchor="middle" className="karting-axis-label">{Math.round(value * 100)}%</text>)}

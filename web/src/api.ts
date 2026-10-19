@@ -28,6 +28,21 @@ async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
 
 const segment = (value: string) => encodeURIComponent(value);
 
+export interface RaceEngineerExplainRequest {
+  source: string;
+  referenceLap: number;
+  comparedLap: number;
+  context: string | null;
+  findings: { title: string; value: string; evidence: string; distanceRanges?: { start: number; end: number }[] }[];
+  limitations: string | null;
+}
+
+export interface RaceEngineerChatRequest {
+  report: RaceEngineerExplainRequest;
+  question: string;
+  history: { role: 'user' | 'assistant'; content: string }[];
+}
+
 export const api = {
   assetUrl: (path: string | null) => path ? `${normalizedApiBase}${path.startsWith('/') ? path : `/${path}`}` : null,
   catalog: (signal?: AbortSignal) => request<TelemetryCatalog>('/catalog', signal),
@@ -54,4 +69,27 @@ export const api = {
     request<KartingSessionDetails>(`/karting/sessions/${segment(sessionId)}`, signal),
   kartingCompare: (sessionId: string, reference: number, compared: number, signal?: AbortSignal) =>
     request<KartingLapComparison>(`/karting/sessions/${segment(sessionId)}/laps/compare?referenceLap=${reference}&comparedLap=${compared}&points=201`, signal),
+  explain: (payload: RaceEngineerExplainRequest, signal?: AbortSignal) => post<RaceEngineerExplanation>('/race-engineer/explain', payload, signal),
+  chatWithRaceEngineer: (payload: RaceEngineerChatRequest, signal?: AbortSignal) => post<RaceEngineerExplanation>('/race-engineer/chat', payload, signal),
 };
+
+export interface RaceEngineerExplanation {
+  explanation: string;
+  provider: string;
+  model: string;
+}
+
+async function post<T>(path: string, payload: unknown, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(`${normalizedApiBase}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal,
+  });
+  if (!response.ok) {
+    const result = await response.json().catch(() => null) as { message?: string } | null;
+    if (response.status === 503) throw new Error('La IA generativa no está configurada en la API. Configura endpoint, clave y modelo.');
+    throw new Error(result?.message ?? `La API respondió ${response.status} (${response.statusText})`);
+  }
+  return response.json() as Promise<T>;
+}

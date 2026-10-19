@@ -150,7 +150,7 @@ public sealed partial class AimKartingCsvDataProvider(string dataRoot) : IKartin
         var markers = ParseMetadataList(metadata, "Beacon Markers");
         if (markers.Count == 0) warnings.Add("No hay Beacon Markers; no se reconstruyen vueltas automáticamente.");
         var sampleRate = ParseMetadataNumber(metadata, "Sample Rate");
-        if (fractionalGearSeen) warnings.Add("Calculated Gear contiene transiciones fraccionarias; se normalizaron al estado discreto más cercano (0/1/2).");
+        if (fractionalGearSeen) warnings.Add("Calculated Gear contiene transiciones fraccionarias; se normalizaron al estado discreto más cercano (N/1/2).");
         ValidateTime(samples, sampleRate, warnings);
         ValidateGear(samples, warnings);
         ValidateMarkerTimes(metadata, markers, warnings);
@@ -319,7 +319,7 @@ public sealed partial class AimKartingCsvDataProvider(string dataRoot) : IKartin
 
     private static void ValidateGear(IReadOnlyList<RawSample> samples, ICollection<string> warnings)
     {
-        if (samples.Any(sample => sample.Gear == 0)) warnings.Add("El estado de marcha 0 se conserva como no engranada/parada; las marchas 1 y 2 se cuentan por separado.");
+        if (samples.Any(sample => sample.Gear == 0)) warnings.Add("El estado de marcha N se conserva como punto muerto/no engranada; las marchas 1 y 2 se cuentan por separado.");
     }
 
     private static void ValidateMarkerTimes(IReadOnlyDictionary<string, string[]> metadata, IReadOnlyList<double> markers, ICollection<string> warnings)

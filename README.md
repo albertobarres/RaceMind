@@ -63,6 +63,19 @@ dotnet run --project src/RaceMind.Api --urls http://localhost:5171
 
 La API no importa ni copia los 10 GB al repositorio: cataloga nombres de eventos/sesiones desde las carpetas y abre resúmenes y telemetría bajo demanda. La interfaz muestra un mensaje de carga, no selecciona evento ni piloto automáticamente y espera a que el usuario tome esas decisiones. Endpoints y guía de pantallas: [`docs/api-and-frontend.md`](docs/api-and-frontend.md).
 
+### Explicaciones generativas (opcional)
+
+Race Engineer puede solicitar una explicación en español de sus hallazgos estructurados. La telemetría cruda no se envía al proveedor. La integración usa un endpoint compatible con Chat Completions y se activa configurando estas variables de entorno en el proceso de la API:
+
+```powershell
+$env:GenerativeAI__Endpoint = "https://<proveedor>/v1/chat/completions"
+$env:GenerativeAI__ApiKey = "<clave-del-proveedor>"
+$env:GenerativeAI__Model = "<modelo>"
+dotnet run --project src/RaceMind.Api --urls http://localhost:5080
+```
+
+La clave se mantiene en el backend; no debe incluirse en el frontend ni versionarse en el repositorio. Sin configuración, los informes deterministas siguen disponibles y el endpoint generativo devuelve `503`.
+
 ## Frontend
 
 Requiere Node.js LTS y npm. En una segunda terminal, desde la raíz del repositorio:

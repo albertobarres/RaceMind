@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { CornerSummary, LapComparison } from './types';
+import { useFindingHighlight } from './findingHighlight';
 
 type SeriesKey =
   | 'referenceSpeedKph' | 'comparedSpeedKph'
@@ -19,6 +20,7 @@ interface SeriesChartProps {
 
 export function SeriesChart({ title, unit, comparison, series, format, range, toggleable = false }: SeriesChartProps) {
   const [visibleKeys, setVisibleKeys] = useState<SeriesKey[]>(() => series.map((item) => item.key));
+  const highlightedRanges = useFindingHighlight();
   const visibleSeries = toggleable ? series.filter((item) => visibleKeys.includes(item.key)) : series;
   const width = 900;
   const height = 190;
@@ -59,7 +61,7 @@ export function SeriesChart({ title, unit, comparison, series, format, range, to
         </div>
       </div>
       <div className="chart-scroll">
-        <svg className="series-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
+        <svg className="series-chart" data-racemind-chart-anchor="true" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
           {Array.from({ length: ticks + 1 }, (_, index) => {
             const value = min + ((max - min) * index) / ticks;
             const yy = y(value);
@@ -74,6 +76,16 @@ export function SeriesChart({ title, unit, comparison, series, format, range, to
             return <g key={index}>
               <line x1={xx} x2={xx} y1={top} y2={height - bottom} className="grid-line vertical" />
               <text x={xx} y={height - 7} textAnchor="middle" className="axis-label">{Math.round(ratio * 100)}%</text>
+            </g>;
+          })}
+          {highlightedRanges.map((highlight, index) => {
+            const startX = x(highlight.start);
+            const endX = x(highlight.end);
+            const isPoint = Math.abs(endX - startX) < 2;
+            return <g key={`finding-highlight-${index}`} pointerEvents="none">
+              {isPoint
+                ? <line x1={startX} x2={startX} y1={top} y2={height - bottom} className="finding-chart-cursor" />
+                : <rect x={startX} y={top} width={endX - startX} height={plotHeight} className="finding-chart-range" />}
             </g>;
           })}
           {visibleSeries.map((item) => {
