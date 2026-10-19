@@ -1,0 +1,7 @@
+.karting-chart-legend{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:10px}
+.karting-chart-legend>span,.karting-chart-legend-toggle{display:inline-flex;align-items:center;gap:5px;color:inherit;font:500 13px Arial,sans-serif;white-space:nowrap}
+.karting-chart-legend-toggle,.karting-chart-legend-toggle:hover,.karting-chart-legend-toggle:active{appearance:none!important;-webkit-appearance:none!important;padding:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:none!important;background-color:transparent!important;opacity:1;cursor:pointer;transition:opacity .15s ease}
+.karting-chart-legend-toggle:not(.is-active){opacity:.38}
+.karting-chart-legend i{width:6px;height:6px;flex:none;border-radius:50%}
+.karting-chart-legend-toggle:focus-visible{outline:1px solid currentColor!important;outline-offset:3px}
+@media(max-width:700px){.karting-chart-legend{gap:6px}.karting-chart-legend>span,.karting-chart-legend-toggle{font-size:10px}}

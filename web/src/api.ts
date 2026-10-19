@@ -4,6 +4,8 @@ import type {
   AssettoSessionDetails,
   LapComparison,
   LapSummary,
+  KartingLapComparison,
+  KartingSessionDetails,
   MotoGpEventSummary,
   MotoGpLapRecord,
   MotoGpSessionDetails,
@@ -48,4 +50,8 @@ export const api = {
   assettoSession: (sessionId: string, signal?: AbortSignal) => request<AssettoSessionDetails>(`/cars/assetto-corsa/sessions/${segment(sessionId)}`, signal),
   assettoCompare: (sessionId: string, reference: number, compared: number, signal?: AbortSignal) =>
     request<AssettoLapComparison>(`/cars/assetto-corsa/sessions/${segment(sessionId)}/laps/compare?referenceLap=${reference}&comparedLap=${compared}&points=201`, signal),
+  kartingSession: (sessionId: string, signal?: AbortSignal) =>
+    request<KartingSessionDetails>(`/karting/sessions/${segment(sessionId)}`, signal),
+  kartingCompare: (sessionId: string, reference: number, compared: number, signal?: AbortSignal) =>
+    request<KartingLapComparison>(`/karting/sessions/${segment(sessionId)}/laps/compare?referenceLap=${reference}&comparedLap=${compared}&points=201`, signal),
 };

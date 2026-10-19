@@ -250,3 +250,78 @@ export interface AssettoSessionDetails {
   track: AssettoTrackPoint[];
   warnings: string[];
 }
+
+export interface KartingLapSummary {
+  number: number;
+  startTimeSeconds: number;
+  lapTimeSeconds: number;
+  distanceMeters: number;
+  averageSpeedKph: number;
+  maxSpeedKph: number;
+  maxRpm: number;
+  averageWaterTemperatureCelsius: number;
+  gearOneSamples: number;
+  gearTwoSamples: number;
+  sampleCount: number;
+  isComparable: boolean;
+  quality: string;
+}
+
+export interface KartingTrackPoint {
+  latitude: number;
+  longitude: number;
+  speedKph: number;
+  relativeDistance: number;
+}
+
+export interface KartingSessionDetails {
+  id: string;
+  circuit: string;
+  vehicle: string;
+  racer: string;
+  date: string;
+  sessionTime: string;
+  sampleRateHz: number;
+  sampleCount: number;
+  durationSeconds: number;
+  peakSpeedKph: number;
+  peakRpm: number;
+  startWaterTemperatureCelsius: number;
+  endWaterTemperatureCelsius: number;
+  beaconCount: number;
+  lapCount: number;
+  bestLapSeconds: number | null;
+  laps: KartingLapSummary[];
+  track: KartingTrackPoint[];
+  warnings: string[];
+}
+
+export interface KartingTelemetrySample {
+  relativeDistance: number;
+  elapsedSeconds: number;
+  speedKph: number;
+  rpm: number;
+  gear: number;
+  lateralG: number;
+  longitudinalG: number;
+  waterTemperatureCelsius: number;
+  latitude: number;
+  longitude: number;
+  gpsAccuracyMeters: number;
+}
+
+export interface KartingComparisonPoint {
+  relativeDistance: number;
+  deltaElapsedSeconds: number;
+  reference: KartingTelemetrySample;
+  compared: KartingTelemetrySample;
+}
+
+export interface KartingLapComparison {
+  referenceLap: number;
+  comparedLap: number;
+  referenceLapTimeSeconds: number;
+  comparedLapTimeSeconds: number;
+  deltaLapTimeSeconds: number;
+  points: KartingComparisonPoint[];
+}

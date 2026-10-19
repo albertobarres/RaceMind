@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from './api';
-import type { AssettoLapComparison, AssettoSessionDetails, CornerSummary, LapComparison, LapSummary, MotoGpEventSummary, MotoGpLapRecord, MotoGpSessionDetails, SessionDetails, SessionSummary, TelemetryCatalog } from './types';
+import type { AssettoLapComparison, AssettoSessionDetails, CornerSummary, KartingLapComparison, KartingSessionDetails, LapComparison, LapSummary, MotoGpEventSummary, MotoGpLapRecord, MotoGpSessionDetails, SessionDetails, SessionSummary, TelemetryCatalog } from './types';
 
 interface DashboardState {
   catalog: TelemetryCatalog | null;
@@ -11,6 +11,9 @@ interface DashboardState {
   selectedAssettoSessionId: string | null;
   assettoSession: AssettoSessionDetails | null;
   assettoComparison: AssettoLapComparison | null;
+  selectedKartingSessionId: string | null;
+  kartingSession: KartingSessionDetails | null;
+  kartingComparison: KartingLapComparison | null;
   motoGpEvents: MotoGpEventSummary[];
   motoGpLapRecords: MotoGpLapRecord[];
   session: SessionDetails | null;
@@ -34,6 +37,8 @@ interface DashboardState {
   chooseMotoGpSession: (year: number, eventCode: string, sessionCode: string) => void;
   chooseAssettoSession: (sessionId: string) => void;
   compareAssettoLaps: (reference: number, compared: number) => void;
+  chooseKartingSession: (sessionId: string) => void;
+  compareKartingLaps: (reference: number, compared: number) => void;
 }
 
 const isAbortError = (cause: unknown) => cause instanceof DOMException && cause.name === 'AbortError';
@@ -50,6 +55,9 @@ export function useRaceMindDashboard(): DashboardState {
   const [selectedAssettoSessionId, setSelectedAssettoSessionId] = useState<string | null>(null);
   const [assettoSession, setAssettoSession] = useState<AssettoSessionDetails | null>(null);
   const [assettoComparison, setAssettoComparison] = useState<AssettoLapComparison | null>(null);
+  const [selectedKartingSessionId, setSelectedKartingSessionId] = useState<string | null>(null);
+  const [kartingSession, setKartingSession] = useState<KartingSessionDetails | null>(null);
+  const [kartingComparison, setKartingComparison] = useState<KartingLapComparison | null>(null);
   const [motoGpEvents, setMotoGpEvents] = useState<MotoGpEventSummary[]>([]);
   const [motoGpLapRecords, setMotoGpLapRecords] = useState<MotoGpLapRecord[]>([]);
   const [session, setSession] = useState<SessionDetails | null>(null);
@@ -79,6 +87,18 @@ export function useRaceMindDashboard(): DashboardState {
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [selectedAssettoSessionId]);
+
+  useEffect(() => {
+    if (!selectedKartingSessionId) return;
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    api.kartingSession(selectedKartingSessionId, controller.signal)
+      .then(setKartingSession)
+      .catch((cause: unknown) => setFailure(cause, controller.signal, setError, 'No se pudo cargar la sesión de karting.'))
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [selectedKartingSessionId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -173,6 +193,8 @@ export function useRaceMindDashboard(): DashboardState {
     setSelectedAssettoSessionId(null);
     setAssettoSession(null);
     setAssettoComparison(null);
+    setKartingSession(null);
+    setKartingComparison(null);
     setMotoGpLapRecords([]);
     setLoading(true);
     setError(null);
@@ -191,6 +213,8 @@ export function useRaceMindDashboard(): DashboardState {
     setSelectedAssettoSessionId(null);
     setAssettoSession(null);
     setAssettoComparison(null);
+    setKartingSession(null);
+    setKartingComparison(null);
     setSelectedMotoGpSession(null);
     setMotoGpLapRecords([]);
     setDriver(null);
@@ -218,6 +242,9 @@ export function useRaceMindDashboard(): DashboardState {
     setSelectedYear(null);
     setSelectedF1Session(null);
     setSelectedMotoGpSession(null);
+    setSelectedKartingSessionId(null);
+    setKartingSession(null);
+    setKartingComparison(null);
     setSelectedAssettoSessionId(sessionId);
     setAssettoSession(null);
     setAssettoComparison(null);
@@ -244,11 +271,46 @@ export function useRaceMindDashboard(): DashboardState {
       .finally(() => { if (!controller.signal.aborted) setComparisonLoading(false); });
   };
 
+  const chooseKartingSession = (sessionId: string) => {
+    setSelectedSessionId(`karting/${sessionId}`);
+    setSelectedYear(null);
+    setSelectedF1Session(null);
+    setSelectedMotoGpSession(null);
+    setSelectedAssettoSessionId(null);
+    setSelectedKartingSessionId(sessionId);
+    setAssettoSession(null);
+    setAssettoComparison(null);
+    setMotoGpLapRecords([]);
+    setSession(null);
+    setDriver(null);
+    setLoading(true);
+    setError(null);
+  };
+
+  const compareKartingLaps = (reference: number, compared: number) => {
+    if (!selectedKartingSessionId || reference === compared) {
+      setKartingComparison(null);
+      return;
+    }
+    const controller = new AbortController();
+    setComparisonLoading(true);
+    api.kartingCompare(selectedKartingSessionId, reference, compared, controller.signal)
+      .then(setKartingComparison)
+      .catch((cause: unknown) => {
+        setFailure(cause, controller.signal, setError, 'No se pudieron comparar las vueltas de karting.');
+        if (!controller.signal.aborted) setKartingComparison(null);
+      })
+      .finally(() => { if (!controller.signal.aborted) setComparisonLoading(false); });
+  };
+
   const resetDashboard = () => {
     setSelectedSessionId('');
     setSelectedYear(null);
     setSelectedF1Session(null);
     setSelectedMotoGpSession(null);
+    setSelectedKartingSessionId(null);
+    setKartingSession(null);
+    setKartingComparison(null);
     setSelectedAssettoSessionId(null);
     setAssettoSession(null);
     setAssettoComparison(null);
@@ -272,6 +334,9 @@ export function useRaceMindDashboard(): DashboardState {
     selectedAssettoSessionId,
     assettoSession,
     assettoComparison,
+    selectedKartingSessionId,
+    kartingSession,
+    kartingComparison,
     motoGpEvents,
     motoGpLapRecords,
     session,
@@ -295,6 +360,8 @@ export function useRaceMindDashboard(): DashboardState {
     chooseMotoGpSession,
     chooseAssettoSession,
     compareAssettoLaps,
+    chooseKartingSession,
+    compareKartingLaps,
   };
 }
 

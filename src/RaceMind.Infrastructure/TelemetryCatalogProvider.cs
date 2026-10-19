@@ -13,13 +13,29 @@ public sealed class TelemetryCatalogProvider(string dataRoot) : ITelemetryCatalo
         var cars = BuildCars();
         var motorcycles = BuildMotorcycles();
         var simulators = BuildSimulators();
+        var karting = BuildKarting();
 
         return Task.FromResult(new TelemetryCatalog(new[]
         {
             new TelemetryCategory("cars", "Coches", cars),
             new TelemetryCategory("motorcycles", "Motos", motorcycles),
-            new TelemetryCategory("simulators", "Simuladores", simulators)
+            new TelemetryCategory("simulators", "Simuladores", simulators),
+            new TelemetryCategory("karting", "Karting", karting)
         }));
+    }
+
+    private IReadOnlyList<TelemetrySeries> BuildKarting()
+    {
+        var root = Path.Combine(_telemetryRoot, "Karting");
+        if (!Directory.Exists(root)) return Array.Empty<TelemetrySeries>();
+        var datasets = new AimKartingCsvDataProvider(_telemetryRoot).GetSessionsAsync(CancellationToken.None)
+            .GetAwaiter().GetResult();
+        var tracks = Directory.EnumerateDirectories(root)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .Select(path => new TelemetrySeries(ToKey(Path.GetFileName(path)), Path.GetFileName(path), Array.Empty<TelemetryYear>(),
+                datasets.Where(dataset => dataset.Location?.StartsWith($"{Path.GetFileName(path)}/", StringComparison.OrdinalIgnoreCase) == true).ToArray()))
+            .ToArray();
+        return tracks;
     }
 
     private IReadOnlyList<TelemetrySeries> BuildCars()

@@ -211,3 +211,75 @@ public interface IAssettoCorsaDataProvider
     Task<AssettoLapComparison?> CompareLapsAsync(string sessionPath, int referenceLap, int comparedLap, int pointCount, CancellationToken cancellationToken);
     string? GetAssetPath(string sessionPath, string assetName);
 }
+
+public sealed record KartingLapSummary(
+    int Number,
+    double StartTimeSeconds,
+    double LapTimeSeconds,
+    double DistanceMeters,
+    double AverageSpeedKph,
+    double MaxSpeedKph,
+    double MaxRpm,
+    double AverageWaterTemperatureCelsius,
+    int GearOneSamples,
+    int GearTwoSamples,
+    int SampleCount,
+    bool IsComparable,
+    string Quality);
+
+public sealed record KartingTrackPoint(double Latitude, double Longitude, double SpeedKph, double RelativeDistance);
+
+public sealed record KartingSessionDetails(
+    string Id,
+    string Circuit,
+    string Vehicle,
+    string Racer,
+    string Date,
+    string SessionTime,
+    int SampleRateHz,
+    int SampleCount,
+    double DurationSeconds,
+    double PeakSpeedKph,
+    double PeakRpm,
+    double StartWaterTemperatureCelsius,
+    double EndWaterTemperatureCelsius,
+    int BeaconCount,
+    int LapCount,
+    double? BestLapSeconds,
+    IReadOnlyList<KartingLapSummary> Laps,
+    IReadOnlyList<KartingTrackPoint> Track,
+    IReadOnlyList<string> Warnings);
+
+public sealed record KartingTelemetrySample(
+    double RelativeDistance,
+    double ElapsedSeconds,
+    double SpeedKph,
+    double Rpm,
+    int Gear,
+    double LateralG,
+    double LongitudinalG,
+    double WaterTemperatureCelsius,
+    double Latitude,
+    double Longitude,
+    double GpsAccuracyMeters);
+
+public sealed record KartingComparisonPoint(
+    double RelativeDistance,
+    double DeltaElapsedSeconds,
+    KartingTelemetrySample Reference,
+    KartingTelemetrySample Compared);
+
+public sealed record KartingLapComparison(
+    int ReferenceLap,
+    int ComparedLap,
+    double ReferenceLapTimeSeconds,
+    double ComparedLapTimeSeconds,
+    double DeltaLapTimeSeconds,
+    IReadOnlyList<KartingComparisonPoint> Points);
+
+public interface IKartingDataProvider
+{
+    Task<IReadOnlyList<TelemetryDataset>> GetSessionsAsync(CancellationToken cancellationToken);
+    Task<KartingSessionDetails?> GetSessionAsync(string sessionId, CancellationToken cancellationToken);
+    Task<KartingLapComparison?> CompareLapsAsync(string sessionId, int referenceLap, int comparedLap, int pointCount, CancellationToken cancellationToken);
+}

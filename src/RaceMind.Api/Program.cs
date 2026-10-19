@@ -18,6 +18,8 @@ builder.Services.AddSingleton<IMotoGpDataProvider>(_ =>
     new MotoGpExcelDataProvider(dataRoot ?? Path.Combine(Directory.GetCurrentDirectory(), "data")));
 builder.Services.AddSingleton<IAssettoCorsaDataProvider>(_ =>
     new AssettoCorsaCsvDataProvider(dataRoot ?? Path.Combine(Directory.GetCurrentDirectory(), "data")));
+builder.Services.AddSingleton<IKartingDataProvider>(_ =>
+    new AimKartingCsvDataProvider(dataRoot ?? Path.Combine(Directory.GetCurrentDirectory(), "data")));
 builder.Services.AddSingleton<LapComparisonService>();
 builder.Services.AddCors(options => options.AddPolicy("frontend", policy =>
 {
@@ -34,6 +36,45 @@ api.MapGet("/health", () => Results.Ok(new { status = "ok", service = "RaceMind.
 
 api.MapGet("/catalog", async (ITelemetryCatalogProvider provider, CancellationToken cancellationToken) =>
     Results.Ok(await provider.GetCatalogAsync(cancellationToken))).WithName("GetTelemetryCatalog");
+
+api.MapGet("/karting/sessions", async (IKartingDataProvider provider, CancellationToken cancellationToken) =>
+    Results.Ok(await provider.GetSessionsAsync(cancellationToken))).WithName("GetKartingSessions");
+
+api.MapGet("/karting/sessions/{sessionId}", async (string sessionId, IKartingDataProvider provider, CancellationToken cancellationToken) =>
+    {
+        try
+        {
+            var details = await provider.GetSessionAsync(sessionId, cancellationToken);
+            return details is null ? Results.NotFound() : Results.Ok(details);
+        }
+        catch (InvalidDataException exception)
+        {
+            return Results.UnprocessableEntity(new { message = exception.Message });
+        }
+    })
+    .WithName("GetKartingSession");
+
+api.MapGet("/karting/sessions/{sessionId}/laps/compare", async (
+    string sessionId, int referenceLap, int comparedLap, int? points, IKartingDataProvider provider, CancellationToken cancellationToken) =>
+    {
+        if (referenceLap <= 0 || comparedLap <= 0 || referenceLap == comparedLap)
+            return Results.BadRequest(new { message = "Selecciona dos vueltas distintas y positivas." });
+        var pointCount = points ?? 201;
+        if (pointCount is < 2 or > 2001)
+            return Results.BadRequest(new { message = "El parámetro points debe estar entre 2 y 2001." });
+        try
+        {
+            var comparison = await provider.CompareLapsAsync(sessionId, referenceLap, comparedLap, pointCount, cancellationToken);
+            return comparison is null
+                ? Results.UnprocessableEntity(new { message = "Las vueltas no existen o no han superado los filtros de calidad." })
+                : Results.Ok(comparison);
+        }
+        catch (InvalidDataException exception)
+        {
+            return Results.UnprocessableEntity(new { message = exception.Message });
+        }
+    })
+    .WithName("CompareKartingLaps");
 
 api.MapGet("/cars/assetto-corsa/sessions/{sessionPath}", async (string sessionPath, IAssettoCorsaDataProvider provider, CancellationToken cancellationToken) =>
     {
