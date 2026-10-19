@@ -18,6 +18,7 @@ import { SeriesChart, TrackMap } from './Charts';
 import { MotoGpWorkspace } from './MotoGpWorkspace';
 import { AssettoCorsaWorkspace } from './AssettoCorsaWorkspace';
 import { KartingWorkspace } from './KartingWorkspace';
+import { buildF1Findings, ReportPanel } from './RaceEngineerReport';
 import { useRaceMindDashboard } from './useRaceMindDashboard';
 import type { AssettoLapComparison, AssettoSessionDetails, CornerSummary, DriverSummary, KartingLapComparison, KartingSessionDetails, LapComparison, LapSummary, MotoGpEventSummary, MotoGpLapRecord, MotoGpSessionDetails, MotoGpSessionSummary, SessionDetails, SessionSummary, TelemetryCatalog, TelemetryDataset, TelemetrySeries, TelemetryYear } from './types';
 
@@ -656,6 +657,14 @@ function LapComparisonSection(props: {
       <LapSummary comparison={comparison} reference={reference} compared={compared} referenceLap={referenceLap} />
       <SectorGrid reference={reference} comparison={comparison} />
       <TelemetryVisualizations session={session} corners={corners} comparison={comparison} referenceLap={referenceLap} comparedLap={comparedLap} />
+      {comparison && <ReportPanel
+        title="Oportunidades observadas"
+        subtitle="Hallazgos derivados de la comparación seleccionada; no son recomendaciones ni conclusiones causales."
+        sourceNote="Se describen diferencias observadas entre dos vueltas. No se infieren causas ni se usa ML o IA generativa en este informe."
+        findings={buildF1Findings(comparison)}
+        referenceLap={comparison.referenceLap}
+        comparedLap={comparison.comparedLap}
+      />}
       <div className="footer-note"><Timer size={14} /><span>ANALYSIS GENERATED FROM SOURCE TELEMETRY</span><i /><span>TRACEABLE · REPRODUCIBLE</span><span className="footer-right">RaceMind <b>v0.1</b></span></div>
     </section>
   );

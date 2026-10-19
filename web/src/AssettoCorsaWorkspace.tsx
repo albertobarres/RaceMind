@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Activity, Gauge, Timer, TriangleAlert } from 'lucide-react';
 import type { AssettoLapComparison, AssettoSessionDetails } from './types';
+import { buildContinuousLapFindings, ReportPanel } from './RaceEngineerReport';
 import { api } from './api';
 import './AssettoCorsaWorkspace.css';
 import './AssettoCorsaWorkspaceOverrides.css';
@@ -93,6 +94,14 @@ export function AssettoCorsaWorkspace({ details, comparison, comparisonLoading, 
           <AssettoChart title="Time delta" unit="seconds · compared − reference" points={comparison.points.map((point) => ({ x: point.relativeDistance, first: point.deltaElapsedSeconds }))} zeroLine />
           <AssettoChart title="Lateral acceleration" unit="g" points={comparison.points.map((point) => ({ x: point.relativeDistance, first: point.reference.lateralG, second: point.compared.lateralG }))} />
         </div>}
+        {comparison && <ReportPanel
+          title="Oportunidades observadas · Assetto Corsa"
+          subtitle="Diferencias descriptivas obtenidas de vueltas reconstruidas y alineadas por distancia recorrida."
+          sourceNote="Los hallazgos son observaciones de esta sesión simulada. La reconstrucción de vuelta usa proximidad al origen; no se atribuyen causas ni se usa ML o IA generativa."
+          findings={buildContinuousLapFindings(comparison)}
+          referenceLap={comparison.referenceLap}
+          comparedLap={comparison.comparedLap}
+        />}
       </section>
 
       <section className="assetto-panel">

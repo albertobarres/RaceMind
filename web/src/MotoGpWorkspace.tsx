@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Activity, Flag, Gauge, Timer, Trophy, Wind } from 'lucide-react';
 import type { MotoGpLapRecord, MotoGpRiderResult, MotoGpSessionDetails } from './types';
+import { ReportPanel, type Finding } from './RaceEngineerReport';
 import './MotoGpWorkspace.css';
 
 interface MotoGpWorkspaceProps {
@@ -286,10 +287,48 @@ function LapComparison({ records, riders }: LapComparisonProps) {
             })}
           </div>
           <p className="motogp-data-note">Sector delta = compared lap − reference lap. Positive values are slower; negative values are faster.</p>
+          <ReportPanel
+            title="Oportunidades observadas · MotoGP"
+            subtitle={`Análisis agregado de ${rider?.name ?? 'piloto seleccionado'}; los registros disponibles contienen tiempos de vuelta y sector, no muestras continuas de telemetría.`}
+            sourceNote="Hallazgos limitados a diferencias de tiempos registradas. No se localizan en el trazado ni se atribuyen a una causa de pilotaje. No se usa ML ni IA generativa."
+            findings={buildMotoGpFindings(reference, compared)}
+            referenceLap={reference.lapNumber}
+            comparedLap={compared.lapNumber}
+          />
         </> : <div className="catalog-empty">Select at least two laps with valid lap times to compare.</div>}
       </> : <div className="motogp-compare-empty"><Timer size={18} /><span><strong>No comparable lap times</strong><small>There are no lap records with a valid time for this session.</small></span></div>}
     </section>
   );
+}
+
+function buildMotoGpFindings(reference: MotoGpLapRecord, compared: MotoGpLapRecord): Finding[] {
+  const referenceSectors = [reference.sector1, reference.sector2, reference.sector3, reference.sector4];
+  const comparedSectors = [compared.sector1, compared.sector2, compared.sector3, compared.sector4];
+  const sectorFindings = referenceSectors.map((sector, index) => {
+    const first = parseLapTime(sector);
+    const second = parseLapTime(comparedSectors[index]);
+    return first == null || second == null ? null : { index, delta: second - first };
+  }).filter((item): item is { index: number; delta: number } => item != null && item.delta >= .05)
+    .sort((first, second) => second.delta - first.delta)
+    .slice(0, 3)
+    .map(({ index, delta }): Finding => ({
+      id: `motogp-sector-${index + 1}`,
+      title: `Sector ${index + 1}: mayor tiempo en la vuelta comparada`,
+      value: formatDelta(delta),
+      evidence: `Diferencia entre los tiempos de sector registrados para las vueltas ${reference.lapNumber} y ${compared.lapNumber}.`,
+    }));
+
+  if (sectorFindings.length > 0) return sectorFindings;
+  const firstLapTime = parseLapTime(reference.lapTime);
+  const secondLapTime = parseLapTime(compared.lapTime);
+  if (firstLapTime == null || secondLapTime == null || secondLapTime - firstLapTime < .05) return [];
+
+  return [{
+    id: 'motogp-lap-time',
+    title: 'La vuelta comparada registra un tiempo mayor',
+    value: formatDelta(secondLapTime - firstLapTime),
+    evidence: `Diferencia entre tiempos de vuelta registrados: ${compared.lapTime} − ${reference.lapTime}.`,
+  }];
 }
 
 function SectorComparison({ index, reference, compared, delta }: { readonly index: number; readonly reference: string | null; readonly compared: string | null; readonly delta: number | null }) {

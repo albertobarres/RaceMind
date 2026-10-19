@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Activity, Gauge, Timer, TriangleAlert } from 'lucide-react';
 import type { KartingLapComparison, KartingSessionDetails } from './types';
+import { buildContinuousLapFindings, ReportPanel } from './RaceEngineerReport';
 import './KartingWorkspace.css';
 import './KartingChartInteractions.css';
 
@@ -73,6 +74,14 @@ export function KartingWorkspace({ details, comparison, comparisonLoading, onCom
           <KartingChart title="Water temperature" unit="°C" points={comparison.points.map((point) => ({ x: point.relativeDistance, a: point.reference.waterTemperatureCelsius, b: point.compared.waterTemperatureCelsius }))} labels={[`LAP ${comparison.referenceLap}`, `LAP ${comparison.comparedLap}`]} />
           <KartingChart title="Gear" unit="discrete state · N / 1 / 2" points={comparison.points.map((point) => ({ x: point.relativeDistance, a: point.reference.gear, b: point.compared.gear }))} range={[0, 2]} tickValues={[0, 1, 2]} tickLabel={(value) => value === 0 ? 'N' : String(value)} labels={[`LAP ${comparison.referenceLap}`, `LAP ${comparison.comparedLap}`]} />
         </div>}
+        {comparison && <ReportPanel
+          title="Oportunidades observadas · Karting"
+          subtitle="Diferencias descriptivas entre segmentos de vuelta comparables, alineados por distancia GPS."
+          sourceNote="Los segmentos se comparan tras filtros de calidad y provienen de una sesión de karting. Las diferencias no identifican causas de conducción; no se usa ML ni IA generativa."
+          findings={buildContinuousLapFindings(comparison)}
+          referenceLap={comparison.referenceLap}
+          comparedLap={comparison.comparedLap}
+        />}
       </> : <div className="karting-empty">No hay dos vueltas que cumplan los filtros de calidad para compararlas.</div>}
     </section>
 
