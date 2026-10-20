@@ -12,7 +12,7 @@ public sealed class OpenAiCompatibleRaceEngineerExplanationService(
     string? model) : IRaceEngineerExplanationService
 {
     private const int MaxFindings = 8;
-    private const int MaxTextLength = 12000;
+    private const int MaxTextLength = 60000;
     private const int MaxChatHistory = 12;
     private const int MaxChatMessageLength = 1000;
     private readonly string? _endpoint = endpoint;

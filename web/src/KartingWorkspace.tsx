@@ -105,6 +105,10 @@ function buildKartingChatContext(details: KartingSessionDetails, comparison: Kar
   const stats = (values: number[], suffix = '') => values.length
     ? `media ${mean(values)!.toFixed(2)}${suffix}, mín ${Math.min(...values).toFixed(2)}${suffix}, máx ${Math.max(...values).toFixed(2)}${suffix}`
     : 'sin datos';
+  const fastestByMaximumSpeed = [...details.laps].sort((first, second) => second.maxSpeedKph - first.maxSpeedKph)[0];
+  const sessionLapRows = details.laps.map((lap) =>
+    `V${lap.number}: punta ${lap.maxSpeedKph.toFixed(1)} km/h, media ${lap.averageSpeedKph.toFixed(1)} km/h, ${lap.lapTimeSeconds.toFixed(3)} s, RPM ${lap.maxRpm.toFixed(0)}, agua ${lap.averageWaterTemperatureCelsius.toFixed(1)} °C, distancia ${lap.distanceMeters.toFixed(0)} m, marchas 1/2 ${lap.gearOneSamples}/${lap.gearTwoSamples}, calidad ${lap.quality}`,
+  );
   const channelRows = ([
     ['velocidad', (point: KartingLapComparison['points'][number], side: 'reference' | 'compared') => point[side].speedKph, ' km/h'],
     ['RPM', (point: KartingLapComparison['points'][number], side: 'reference' | 'compared') => point[side].rpm, ' rpm'],
@@ -130,6 +134,10 @@ function buildKartingChatContext(details: KartingSessionDetails, comparison: Kar
   return [
     `Sesión de karting: piloto ${details.racer}, vehículo ${details.vehicle}, circuito ${details.circuit}, fecha ${details.date} ${details.sessionTime}, frecuencia ${details.sampleRateHz} Hz.`,
     `Indicadores de sesión: ${details.sampleCount} muestras, duración ${details.durationSeconds.toFixed(1)} s, ${details.lapCount} segmentos, ${details.beaconCount} beacons, velocidad máxima ${details.peakSpeedKph.toFixed(1)} km/h, RPM máximo ${details.peakRpm.toFixed(0)}, temperatura del agua inicial/final ${details.startWaterTemperatureCelsius.toFixed(1)}/${details.endWaterTemperatureCelsius.toFixed(1)} °C, mejor vuelta ${details.bestLapSeconds == null ? 'no disponible' : `${details.bestLapSeconds.toFixed(3)} s`}.`,
+    fastestByMaximumSpeed
+      ? `Entre los segmentos de vuelta resumidos, la mayor velocidad máxima es ${fastestByMaximumSpeed.maxSpeedKph.toFixed(1)} km/h en la vuelta ${fastestByMaximumSpeed.number}. La velocidad máxima de sesión es ${details.peakSpeedKph.toFixed(1)} km/h; puede proceder de un segmento parcial o no comparable y no se asigna a una vuelta salvo coincidencia con estos resúmenes.`
+      : 'No hay resúmenes de vuelta para determinar en qué vuelta se registró la mayor velocidad máxima.',
+    `Métricas de todos los segmentos de vuelta mostrados (${details.laps.length}): ${sessionLapRows.join(' | ') || 'sin vueltas'}.`,
     `Vuelta de referencia ${comparison.referenceLap}: ${reference ? `${reference.lapTimeSeconds.toFixed(3)} s, ${reference.distanceMeters.toFixed(1)} m, velocidad media/máxima ${reference.averageSpeedKph.toFixed(1)}/${reference.maxSpeedKph.toFixed(1)} km/h, RPM máximo ${reference.maxRpm.toFixed(0)}, agua media ${reference.averageWaterTemperatureCelsius.toFixed(1)} °C, marchas 1/2 ${reference.gearOneSamples}/${reference.gearTwoSamples}, calidad ${reference.quality}` : 'resumen no disponible'}.`,
     `Vuelta comparada ${comparison.comparedLap}: ${compared ? `${compared.lapTimeSeconds.toFixed(3)} s, ${compared.distanceMeters.toFixed(1)} m, velocidad media/máxima ${compared.averageSpeedKph.toFixed(1)}/${compared.maxSpeedKph.toFixed(1)} km/h, RPM máximo ${compared.maxRpm.toFixed(0)}, agua media ${compared.averageWaterTemperatureCelsius.toFixed(1)} °C, marchas 1/2 ${compared.gearOneSamples}/${compared.gearTwoSamples}, calidad ${compared.quality}` : 'resumen no disponible'}. Delta de vuelta comparada − referencia ${comparison.deltaLapTimeSeconds.toFixed(3)} s.`,
     `Trazas comparativas (medias y extremos de los puntos alineados por distancia): ${channelRows.join(' ')} Marcha discreta N/1/2, referencia ${gearSummary('reference')}; comparada ${gearSummary('compared')}.`,

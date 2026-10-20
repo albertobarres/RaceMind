@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Activity, AlertTriangle, MessageCircle, Send, Sparkles } from 'lucide-react';
 import { api } from './api';
 import { distanceRangeAtElapsed, selectFindingOnCharts, type FindingDistanceRange } from './findingHighlight';
@@ -105,6 +105,7 @@ export function ReportPanel({
   const [chatError, setChatError] = useState<string | null>(null);
   const explanationController = useRef<AbortController | null>(null);
   const chatController = useRef<AbortController | null>(null);
+  const chatMessagesEnd = useRef<HTMLDivElement | null>(null);
   const reportKey = JSON.stringify([title, subtitle, sourceNote, findings, referenceLap, comparedLap]);
 
   useEffect(() => {
@@ -121,6 +122,10 @@ export function ReportPanel({
     setIsChatSending(false);
     return () => explanationController.current?.abort();
   }, [reportKey]);
+
+  useLayoutEffect(() => {
+    chatMessagesEnd.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [chatMessages, isChatSending]);
 
   const explain = async () => {
     if (findings.length === 0 || isExplaining) return;
@@ -236,6 +241,7 @@ export function ReportPanel({
             <small>{message.role === 'user' ? 'TÚ' : 'RACE ENGINEER'}</small><p><FormattedAnswer text={message.content} /></p>
           </article>)}
           {isChatSending && <div className="race-engineer-chat-pending">Race Engineer está respondiendo…</div>}
+          <div ref={chatMessagesEnd} />
         </div>}
         {chatError && <p className="race-engineer-ai-error" role="alert">{chatError}</p>}
         <form className="race-engineer-chat-form" onSubmit={(event) => void sendChatMessage(event)}>

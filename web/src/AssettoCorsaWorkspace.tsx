@@ -140,6 +140,9 @@ function buildAssettoChatContext(
     const comparedTemperature = average(comparedValues);
     return `${label}: referencia ${formatOptional(referenceTemperature, ' °C')} (mín ${formatOptional(referenceValues.length ? Math.min(...referenceValues) : null, ' °C')}, máx ${formatOptional(referenceValues.length ? Math.max(...referenceValues) : null, ' °C')}), comparada ${formatOptional(comparedTemperature, ' °C')} (mín ${formatOptional(comparedValues.length ? Math.min(...comparedValues) : null, ' °C')}, máx ${formatOptional(comparedValues.length ? Math.max(...comparedValues) : null, ' °C')})`;
   });
+  const allLapRows = details.laps.map((lap) =>
+    `vuelta ${lap.number}: ${lap.lapTimeSeconds.toFixed(3)} s, velocidad media/máxima ${lap.averageSpeedKph.toFixed(1)}/${lap.maxSpeedKph.toFixed(1)} km/h, distancia ${lap.distanceMeters.toFixed(0)} m, RPM máximo ${lap.maxRpm.toFixed(0)}, combustible ${lap.fuelStartLitres.toFixed(2)}→${lap.fuelEndLitres.toFixed(2)} L, ${lap.sampleCount} muestras`,
+  );
   const channelSummary = (
     label: string,
     read: (sample: AssettoLapComparison['points'][number]['reference']) => number,
@@ -167,6 +170,7 @@ function buildAssettoChatContext(
     `Sesión Assetto Corsa: coche ${details.car}, circuito ${details.circuit}.`,
     `Contexto de sesión visible: ${details.sampleCount} muestras, ${formatDuration(details.durationSeconds)}, ${details.lapCount} vueltas detectadas, velocidad máxima de sesión ${formatOptional(details.peakSpeedKph, ' km/h')}, mejor vuelta ${details.bestLapSeconds == null ? 'no disponible' : `${details.bestLapSeconds.toFixed(3)} s`}.`,
     `Ficha visible del coche: ${details.specs.maxRpm == null ? 'RPM máximo no disponible' : `${details.specs.maxRpm} rpm máximo`}, potencia ${formatPower(details.specs.maxPowerWatts)}, par ${formatOptional(details.specs.maxTorqueNm, ' Nm')}, capacidad de combustible ${formatOptional(details.specs.maxFuelLitres, ' L')}.`,
+    `Todas las vueltas del análisis visible (${details.laps.length}): ${allLapRows.join('; ') || 'sin registros'}.`,
     'Comparación alineada por distancia relativa; magnitudes descriptivas, no experimentales.',
     reference && compared
       ? `Vuelta de referencia ${reference.number}: ${reference.lapTimeSeconds.toFixed(3)} s, ${reference.averageSpeedKph.toFixed(1)} km/h de media, ${reference.maxSpeedKph.toFixed(1)} km/h de máximo, ${reference.maxRpm.toFixed(0)} rpm máximo, combustible ${reference.fuelStartLitres.toFixed(2)}→${reference.fuelEndLitres.toFixed(2)} L.`

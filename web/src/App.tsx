@@ -660,7 +660,7 @@ function LapComparisonSection(props: {
       {comparison && <ReportPanel
         title="Oportunidades observadas"
         subtitle="Hallazgos derivados de la comparación seleccionada; no son recomendaciones ni conclusiones causales."
-        chatContext={buildF1ChatContext(session, selectedDriver, reference, compared, comparison)}
+        chatContext={buildF1ChatContext(session, selectedDriver, availableLaps, reference, compared, comparison)}
         sourceNote="Se describen diferencias observadas entre dos vueltas. La explicación generativa, si se solicita, se limita a estos hallazgos; no se infieren causas ni se usa ML."
         findings={buildF1Findings(comparison, [reference?.sector1Seconds ?? null, reference?.sector2Seconds ?? null, reference?.sector3Seconds ?? null])}
         referenceLap={comparison.referenceLap}
@@ -674,6 +674,7 @@ function LapComparisonSection(props: {
 function buildF1ChatContext(
   session: SessionDetails,
   driver: DriverSummary | null,
+  availableLaps: LapSummary[],
   reference: LapSummary | null,
   compared: LapSummary | null,
   comparison: LapComparison,
@@ -688,13 +689,21 @@ function buildF1ChatContext(
     return `tramo ${segment + 1} (${segment * 25}–${(segment + 1) * 25}% distancia): delta acumulado final ${points.at(-1)?.deltaElapsedSeconds.toFixed(3) ?? 'sin datos'} s`;
   });
   const sectorDeltas = comparison.sectorDeltasSeconds.map((value, index) => `S${index + 1} ${value == null ? 'sin datos' : `${value.toFixed(3)} s`}`).join('; ');
+  const driverRows = session.drivers.map((item) =>
+    `${item.fullName ?? item.code} (${item.code}), equipo ${item.team ?? '—'}, vueltas disponibles ${item.lapCount ?? '—'}, mejor vuelta ${formatPageMetric(item.bestLapSeconds, ' s')}`,
+  );
+  const lapRows = availableLaps.map((lap) =>
+    `vuelta ${lap.number}: ${formatPageMetric(lap.lapTimeSeconds, ' s')}, sectores ${[lap.sector1Seconds, lap.sector2Seconds, lap.sector3Seconds].map((value) => formatPageMetric(value, ' s')).join('/')}, neumático ${lap.tyreCompound ?? '—'}, stint ${lap.stint ?? '—'}, telemetría ${lap.hasTelemetry ? 'disponible' : 'no disponible'}${lap.isPersonalBest ? ', mejor personal' : ''}`,
+  );
 
   return [
     `Sesión F1: ${session.grandPrix}, ${session.sessionName}, ${session.year}; piloto ${driver?.fullName ?? driver?.code ?? 'no disponible'}.`,
+    `Pilotos visibles en el resumen de sesión: ${driverRows.join('; ') || 'sin registros'}.`,
     `Condiciones visibles: temperatura ambiente ${formatPageMetric(session.weather?.airTemperatureCelsius, ' °C')}, pista ${formatPageMetric(session.weather?.trackTemperatureCelsius, ' °C')}, humedad ${formatPageMetric(session.weather?.humidityPercent, '%')}, viento ${formatPageMetric(session.weather?.windSpeedMetersPerSecond, ' m/s')}, lluvia ${session.weather?.rainfall == null ? 'no disponible' : session.weather.rainfall ? 'sí' : 'no'}.`,
     `Vuelta de referencia ${comparison.referenceLap}: tiempo ${formatPageMetric(reference?.lapTimeSeconds, ' s')}, sectores ${reference ? [reference.sector1Seconds, reference.sector2Seconds, reference.sector3Seconds].map((value) => formatPageMetric(value, ' s')).join(' / ') : 'sin datos'}, neumático ${reference?.tyreCompound ?? 'no disponible'}, stint ${reference?.stint ?? 'no disponible'}.`,
     `Vuelta comparada ${comparison.comparedLap}: tiempo ${formatPageMetric(compared?.lapTimeSeconds, ' s')}, sectores ${compared ? [compared.sector1Seconds, compared.sector2Seconds, compared.sector3Seconds].map((value) => formatPageMetric(value, ' s')).join(' / ') : 'sin datos'}, neumático ${compared?.tyreCompound ?? 'no disponible'}, stint ${compared?.stint ?? 'no disponible'}.`,
     `Deltas sectoriales comparada − referencia: ${sectorDeltas}.`,
+    `Todas las vueltas disponibles del piloto seleccionado (${availableLaps.length}): ${lapRows.join('; ') || 'sin registros'}.`,
     `Velocidad referencia: ${stats(comparison.points.map((point) => point.referenceSpeedKph))} km/h; comparada: ${stats(comparison.points.map((point) => point.comparedSpeedKph))} km/h.`,
     `Acelerador referencia / comparada: ${stats(comparison.points.map((point) => point.referenceThrottlePercent))}% / ${stats(comparison.points.map((point) => point.comparedThrottlePercent))}%. Freno: ${stats(comparison.points.map((point) => point.referenceBrakePercent))}% / ${stats(comparison.points.map((point) => point.comparedBrakePercent))}%.`,
     `Perfil del delta por distancia: ${segments.join('; ')}.`,

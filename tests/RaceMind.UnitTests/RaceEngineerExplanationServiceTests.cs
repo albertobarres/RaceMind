@@ -125,6 +125,38 @@ public sealed class RaceEngineerExplanationServiceTests
         Assert.Contains(context, ExtractReportContext(handler.RequestBody));
     }
 
+    [Fact]
+    public async Task ChatAsync_DoesNotTruncateFullSessionContextAtPreviousSmallLimit()
+    {
+        const string finalLapMetric = "V44: punta 141.8 km/h, media 112 km/h";
+        var context = new string('x', 14000) + "\n" + finalLapMetric;
+        var handler = new RecordingHandler("""{"choices":[{"message":{"content":"La máxima velocidad de vuelta fue 141.8 km/h."}}]}""");
+        var service = new OpenAiCompatibleRaceEngineerExplanationService(
+            new HttpClient(handler), "https://example.test/v1/chat/completions", "test-key", "test-model");
+        var report = new RaceEngineerExplanationRequest("Karting", 1, 2, context,
+            [new RaceEngineerFinding("Diferencia", "+0.1 s", "Valor de pantalla")], null);
+
+        await service.ChatAsync(new RaceEngineerChatRequest(report, "¿Cuál fue la velocidad máxima?", []), CancellationToken.None);
+
+        Assert.Contains(finalLapMetric, ExtractReportContext(handler.RequestBody));
+    }
+
+    [Fact]
+    public async Task ChatAsync_PreservesAllSessionContextBeyondPreviousLimit()
+    {
+        const string lastDriver = "Clasificación: piloto 22, velocidad máxima 331 km/h";
+        var context = new string('x', 32000) + "\n" + lastDriver;
+        var handler = new RecordingHandler("""{"choices":[{"message":{"content":"El piloto con mayor punta es el 22."}}]}""");
+        var service = new OpenAiCompatibleRaceEngineerExplanationService(
+            new HttpClient(handler), "https://example.test/v1/chat/completions", "test-key", "test-model");
+        var report = new RaceEngineerExplanationRequest("MotoGP", 1, 2, context,
+            [new RaceEngineerFinding("Sector", "+0.1 s", "Valor")], null);
+
+        await service.ChatAsync(new RaceEngineerChatRequest(report, "¿Quién tuvo mayor velocidad punta?", []), CancellationToken.None);
+
+        Assert.Contains(lastDriver, ExtractReportContext(handler.RequestBody));
+    }
+
     [Theory]
     [InlineData("length", "se alcanzó el límite de tokens de salida")]
     [InlineData("content_filter", "filtro de contenido")]
