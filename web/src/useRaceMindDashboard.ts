@@ -105,13 +105,15 @@ export function useRaceMindDashboard(): DashboardState {
     api.catalog(controller.signal)
       .then((value) => {
         setCatalog(value);
-        const motoGpYear = value.categories.find((category) => category.key === 'motorcycles')?.series
-          .find((series) => series.key === 'motogp')?.years[0]?.year;
-        if (motoGpYear) {
-          void api.motoGpEvents(motoGpYear, controller.signal)
-            .then(setMotoGpEvents)
-            .catch((cause: unknown) => setFailure(cause, controller.signal, setError, 'No se pudo cargar el calendario MotoGP.'));
-        }
+        const motoGpYears = value.categories.find((category) => category.key === 'motorcycles')?.series
+          .find((series) => series.key === 'motogp')?.years ?? [];
+        setMotoGpEvents(motoGpYears.flatMap((year) => year.events.map((event) => ({
+          id: `${year.year}/${event.code}`,
+          year: year.year,
+          eventCode: event.code,
+          grandPrix: event.name,
+          sessions: event.sessions,
+        }))));
       })
       .catch((cause: unknown) => setFailure(cause, controller.signal, setError, 'No se pudo conectar con RaceMind API.'))
       .finally(() => {

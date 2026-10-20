@@ -219,7 +219,7 @@ interface CatalogCategoryProps {
 function CatalogCategory(props: CatalogCategoryProps) {
   const { category, search, selectedSessionId, selectedMotoGpSessionId, selectedAssettoSessionId, selectedKartingSessionId, selectedYear, onChooseF1Session, onChooseMotoGpSession, onChooseAssettoSession, onChooseKartingSession, motoGpEvents } = props;
   const [expanded, setExpanded] = useState(category.key === 'cars' || category.key === 'motorcycles' || category.key === 'simulators' || category.key === 'karting');
-  const matchingSeries = category.series.filter((series) => seriesMatchesSearch(series, search));
+  const matchingSeries = category.series.filter((series) => seriesMatchesSearch(series, search, category.key === 'motorcycles' && series.key === 'motogp' ? motoGpEvents : []));
   return (
     <div className="catalog-category">
       <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-category-toggle" title={category.name}>
@@ -254,9 +254,14 @@ interface CatalogSeriesProps {
 function CatalogSeries(props: CatalogSeriesProps) {
   const { categoryKey, series, search, selectedSessionId, selectedMotoGpSessionId, selectedAssettoSessionId, selectedKartingSessionId, selectedYear, onChooseF1Session, onChooseMotoGpSession, onChooseAssettoSession, onChooseKartingSession, motoGpEvents } = props;
   const [expanded, setExpanded] = useState(false);
-  const visibleYears = series.years.filter((year) => yearMatchesSearch(year, search));
+  const isMotoGp = categoryKey === 'motorcycles' && series.key === 'motogp';
+  const visibleMotoGpEvents = isMotoGp ? motoGpEvents.filter((event) => motoGpEventMatchesSearch(event, search)) : [];
+  const hasMatchingMotoGpEvents = visibleMotoGpEvents.length > 0;
+  const autoExpandForSearch = hasSearchMatch(search, series.name) || hasMatchingMotoGpEvents;
+  const isExpanded = expanded || autoExpandForSearch;
+  const visibleYears = series.years.filter((year) => yearMatchesSearch(year, search, isMotoGp ? visibleMotoGpEvents : []));
   const visibleDatasets = series.datasets.filter((dataset) => datasetMatchesSearch(dataset, search));
-  const hasContents = visibleYears.length > 0 || visibleDatasets.length > 0;
+  const hasContents = (isMotoGp ? visibleMotoGpEvents.length > 0 : visibleYears.length > 0) || visibleDatasets.length > 0;
   const isAssetto = categoryKey === 'simulators' && series.key === 'assetto-corsa';
   const isKarting = categoryKey === 'karting';
   const isAnalysisAvailable = (categoryKey === 'cars' && series.key === 'f1') ||
@@ -264,16 +269,16 @@ function CatalogSeries(props: CatalogSeriesProps) {
 
   return (
     <div className="catalog-series">
-      <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-series-toggle" title={series.name}>
+      <TreeToggle expanded={isExpanded} onClick={() => setExpanded(!isExpanded)} className="catalog-series-toggle" title={series.name}>
         <span>{series.name}</span>
         {!isAnalysisAvailable && <span className="catalog-soon">PRÓXIMAMENTE</span>}
       </TreeToggle>
-      {expanded && <div className="catalog-series-children">
+      {isExpanded && <div className="catalog-series-children">
         {categoryKey !== 'motorcycles' || series.key !== 'motogp' ? visibleYears.map((year) => (
           <CatalogYear key={year.year} year={year} search={search} selectedSessionId={selectedSessionId} selectedYear={selectedYear} onChooseF1Session={onChooseF1Session} />
         )) : null}
         {categoryKey === 'motorcycles' && series.key === 'motogp' && (
-          <MotoGpLocalSessions events={motoGpEvents} search={search} selectedSessionId={selectedMotoGpSessionId} onChooseSession={onChooseMotoGpSession} />
+          <MotoGpLocalSessions events={visibleMotoGpEvents} search={search} selectedSessionId={selectedMotoGpSessionId} onChooseSession={onChooseMotoGpSession} />
         )}
         {visibleDatasets.map((dataset) => <CatalogDataset key={dataset.key} dataset={dataset}
           enabled={(isAssetto || isKarting) && dataset.hasSessionAnalysis}
@@ -362,35 +367,39 @@ function MotoGpLocalSessions(props: {
   const years = [...new Set(matchingEvents.map((event) => event.year))].sort((first, second) => second - first);
 
   return <div className="catalog-motogp-local">
-    {years.map((year) => <MotoGpYear key={year} year={year} events={matchingEvents.filter((event) => event.year === year)} selectedSessionId={selectedSessionId} onChooseSession={onChooseSession} />)}
+    {years.map((year) => <MotoGpYear key={year} year={year} events={matchingEvents.filter((event) => event.year === year)} search={search} selectedSessionId={selectedSessionId} onChooseSession={onChooseSession} />)}
     {years.length === 0 && <div className="catalog-empty">No hay sesiones MotoGP para esta búsqueda.</div>}
   </div>;
 }
 
-function MotoGpYear({ year, events, selectedSessionId, onChooseSession }: {
+function MotoGpYear({ year, events, search, selectedSessionId, onChooseSession }: {
   readonly year: number;
   readonly events: MotoGpEventSummary[];
+  readonly search: string;
   readonly selectedSessionId: string | null;
   readonly onChooseSession: (year: number, eventCode: string, sessionCode: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const isExpanded = expanded || search.trim().length > 0;
   return <div className="catalog-year">
-    <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-year-toggle" title={year.toString()}>{year}</TreeToggle>
-    {expanded && <div className="catalog-session-children">
-      {events.map((event) => <MotoGpEvent key={event.id} event={event} selectedSessionId={selectedSessionId} onChooseSession={onChooseSession} />)}
+    <TreeToggle expanded={isExpanded} onClick={() => setExpanded(!isExpanded)} className="catalog-year-toggle" title={year.toString()}>{year}</TreeToggle>
+    {isExpanded && <div className="catalog-session-children">
+      {events.map((event) => <MotoGpEvent key={event.id} event={event} search={search} selectedSessionId={selectedSessionId} onChooseSession={onChooseSession} />)}
     </div>}
   </div>;
 }
 
-function MotoGpEvent({ event, selectedSessionId, onChooseSession }: {
+function MotoGpEvent({ event, search, selectedSessionId, onChooseSession }: {
   readonly event: MotoGpEventSummary;
+  readonly search: string;
   readonly selectedSessionId: string | null;
   readonly onChooseSession: (year: number, eventCode: string, sessionCode: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const isExpanded = expanded || search.trim().length > 0;
   return <div className="catalog-year">
-    <TreeToggle expanded={expanded} onClick={() => setExpanded(!expanded)} className="catalog-year-toggle" title={event.grandPrix}>{event.grandPrix}</TreeToggle>
-    {expanded && <div className="catalog-session-children">
+    <TreeToggle expanded={isExpanded} onClick={() => setExpanded(!isExpanded)} className="catalog-year-toggle" title={event.grandPrix}>{event.grandPrix}</TreeToggle>
+    {isExpanded && <div className="catalog-session-children">
       {event.sessions.map((session) => <MotoGpSessionButton key={session.id} year={event.year} eventCode={event.eventCode} session={session} selected={selectedSessionId === session.id} onChoose={onChooseSession} />)}
     </div>}
   </div>;
@@ -410,9 +419,27 @@ function MotoGpSessionButton({ year, eventCode, session, selected, onChoose }: {
 }
 
 function motoGpEventMatchesSearch(event: MotoGpEventSummary, search: string) {
-  if (!search) return true;
-  return `${event.grandPrix} ${event.eventCode} ${event.year} ${event.sessions.map((session) => `${session.sessionName} ${session.date ?? ''}`).join(' ')}`
-    .toLowerCase().includes(search.toLowerCase());
+  if (!search.trim()) return true;
+  const fields = [
+    event.grandPrix,
+    event.eventCode,
+    event.id,
+    event.year.toString(),
+    ...event.sessions.flatMap((session) => [session.sessionName, session.sessionCode, session.id, session.eventName, session.date ?? '', session.weather ?? '']),
+  ];
+  return fields.some((field) => includesSearch(field, search));
+}
+
+function hasSearchMatch(search: string, ...values: string[]) {
+  return search.trim().length > 0 && values.some((value) => includesSearch(value, search));
+}
+
+function includesSearch(value: string, search: string) {
+  return normalizeSearchText(value).includes(normalizeSearchText(search));
+}
+
+function normalizeSearchText(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase().trim();
 }
 
 function TreeToggle({
@@ -432,27 +459,43 @@ function TreeToggle({
   return <button className={className} type="button" title={title} aria-expanded={expanded} onClick={onClick}><Icon size={14} />{children}</button>;
 }
 
-function seriesMatchesSearch(series: TelemetrySeries, search: string) {
+function seriesMatchesSearch(series: TelemetrySeries, search: string, motoGpEvents: MotoGpEventSummary[] = []) {
   if (!search) return true;
-  if (series.name.toLowerCase().includes(search.toLowerCase())) return true;
+  if (includesSearch(series.name, search)) return true;
+  if (motoGpEvents.some((event) => motoGpEventMatchesSearch(event, search))) return true;
   return series.years.some((year) => yearMatchesSearch(year, search)) || series.datasets.some((dataset) => datasetMatchesSearch(dataset, search));
 }
 
-function yearMatchesSearch(year: TelemetryYear, search: string) {
-  return !search || year.year.toString().includes(search) || year.sessions.some((session) => sessionMatchesSearch(session, search));
+function yearMatchesSearch(year: TelemetryYear, search: string, matchingMotoGpEvents: MotoGpEventSummary[] = []) {
+  return !search || includesSearch(year.year.toString(), search) ||
+    year.sessions.some((session) => sessionMatchesSearch(session, search)) ||
+    matchingMotoGpEvents.some((event) => event.year === year.year);
 }
 
 function sessionMatchesSearch(session: SessionSummary, search: string) {
-  return !search || `${session.grandPrix} ${session.sessionName} ${session.year}`.toLowerCase().includes(search.toLowerCase());
+  return !search || includesSearch(`${session.grandPrix} ${session.sessionName} ${session.year}`, search);
 }
 
 function datasetMatchesSearch(dataset: TelemetryDataset, search: string) {
-  return !search || `${dataset.name} ${dataset.location ?? ''}`.toLowerCase().includes(search.toLowerCase());
+  return !search || includesSearch(`${dataset.name} ${dataset.location ?? ''}`, search);
 }
 
 function hasMatchingCatalogItems(catalog: TelemetryCatalog, search: string) {
   if (!search) return true;
-  return catalog.categories.some((category) => category.series.some((series) => seriesMatchesSearch(series, search)));
+  return catalog.categories.some((category) => category.series.some((series) =>
+    category.key === 'motorcycles' && series.key === 'motogp'
+      ? seriesMatchesSearch(series, search, getMotoGpEventsFromCatalog(series))
+      : seriesMatchesSearch(series, search)));
+}
+
+function getMotoGpEventsFromCatalog(series: TelemetrySeries) {
+  return series.years.flatMap((year) => year.events.map((event) => ({
+    id: `${year.year}/${event.code}`,
+    year: year.year,
+    eventCode: event.code,
+    grandPrix: event.name,
+    sessions: event.sessions,
+  })));
 }
 
 function Header({ grandPrix }: { readonly grandPrix: string | undefined }) {
