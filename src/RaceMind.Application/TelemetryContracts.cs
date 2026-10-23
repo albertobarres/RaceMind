@@ -202,6 +202,8 @@ public sealed record AssettoLapComparison(
     double ReferenceLapTimeSeconds,
     double ComparedLapTimeSeconds,
     double DeltaLapTimeSeconds,
+    double ReferenceDistanceMeters,
+    double ComparedDistanceMeters,
     IReadOnlyList<AssettoComparisonPoint> Points);
 
 public interface IAssettoCorsaDataProvider

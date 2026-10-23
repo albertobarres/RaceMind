@@ -80,7 +80,8 @@ public sealed class AssettoCorsaCsvDataProvider(string dataRoot) : IAssettoCorsa
 
         return Task.FromResult<AssettoLapComparison?>(new AssettoLapComparison(referenceLap, comparedLap,
             reference.Summary.LapTimeSeconds, compared.Summary.LapTimeSeconds,
-            compared.Summary.LapTimeSeconds - reference.Summary.LapTimeSeconds, points));
+            compared.Summary.LapTimeSeconds - reference.Summary.LapTimeSeconds,
+            reference.Summary.DistanceMeters, compared.Summary.DistanceMeters, points));
     }
 
     public string? GetAssetPath(string sessionPath, string assetName)

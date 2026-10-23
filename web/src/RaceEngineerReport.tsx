@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Activity, AlertTriangle, MessageCircle, Send, Sparkles } from 'lucide-react';
 import { api } from './api';
 import { distanceRangeAtElapsed, selectFindingOnCharts, type FindingDistanceRange } from './findingHighlight';
-import type { AssettoLapComparison, KartingLapComparison, LapComparison } from './types';
+import type { AssettoLapComparison, CornerSummary, KartingLapComparison, LapComparison } from './types';
 
 const MIN_NOTABLE_SECTOR_DELTA_SECONDS = 0.05;
 
@@ -39,11 +39,11 @@ export function RaceEngineerReport({
 export function buildContinuousLapFindings(comparison: AssettoLapComparison | KartingLapComparison): Finding[] {
   const findings: Finding[] = [];
   const delta = comparison.deltaLapTimeSeconds;
-  if (delta > MIN_NOTABLE_SECTOR_DELTA_SECONDS) {
+  if (Math.abs(delta) > MIN_NOTABLE_SECTOR_DELTA_SECONDS) {
     findings.push({
       id: 'lap-time-delta',
-      title: 'La vuelta comparada registra un tiempo mayor',
-      value: formatDelta(delta),
+      title: delta > 0 ? 'La vuelta comparada fue más lenta' : 'La vuelta comparada fue más rápida',
+      value: formatSignedDelta(delta),
       evidence: `Diferencia de tiempo de vuelta comparada − referencia: ${comparison.comparedLapTimeSeconds.toFixed(3)} s − ${comparison.referenceLapTimeSeconds.toFixed(3)} s.`,
     });
   }
@@ -55,10 +55,10 @@ export function buildContinuousLapFindings(comparison: AssettoLapComparison | Ka
     }
     return best;
   }, null);
-  if (peak != null) {
+  if (peak != null && peak.delta > MIN_NOTABLE_SECTOR_DELTA_SECONDS) {
     findings.push({
       id: 'peak-delta',
-      title: 'Máxima desventaja acumulada observada',
+      title: 'Mayor desventaja acumulada observada',
       value: formatDelta(peak.delta),
       evidence: `Delta comparada − referencia en el ${Math.round(peak.relativeDistance * 100)}% de la distancia relativa.`,
       distanceRanges: [{ start: peak.relativeDistance, end: peak.relativeDistance }],
@@ -73,7 +73,7 @@ export function buildContinuousLapFindings(comparison: AssettoLapComparison | Ka
     }
     return best;
   }, null);
-  if (speedLoss != null) {
+  if (speedLoss != null && speedLoss.delta <= -5) {
     findings.push({
       id: 'speed-difference',
       title: 'Mayor diferencia negativa de velocidad',
@@ -83,7 +83,128 @@ export function buildContinuousLapFindings(comparison: AssettoLapComparison | Ka
     });
   }
 
-  return findings.slice(0, 3);
+  if ('referenceDistanceMeters' in comparison) {
+    const braking = compareBrakeOnset(comparison);
+    if (braking && Math.abs(braking.deltaMeters) >= 5) {
+      findings.push({
+        id: 'braking-point',
+        title: braking.deltaMeters > 0 ? 'Frenada más tardía en la vuelta comparada' : 'Frenada más temprana en la vuelta comparada',
+        value: `${Math.abs(braking.deltaMeters).toFixed(0)} m ${braking.deltaMeters > 0 ? 'después' : 'antes'}`,
+        evidence: `Primer punto de frenada sostenida (freno ≥20% durante al menos dos muestras): referencia ${braking.referenceMeters.toFixed(0)} m y comparada ${braking.comparedMeters.toFixed(0)} m desde la salida. Posición reconstruida por distancia recorrida.`,
+        distanceRanges: [{ start: braking.relativeDistance, end: braking.relativeDistance }],
+      });
+    }
+
+    const throttle = compareThrottle(comparison);
+    if (throttle && Math.abs(throttle.relativePercent) >= 8) {
+      findings.push({
+        id: 'throttle-application',
+        title: throttle.relativePercent < 0 ? 'Menos acelerador tras la mínima velocidad' : 'Más acelerador tras la mínima velocidad',
+        value: `${Math.abs(throttle.relativePercent).toFixed(0)}% ${throttle.relativePercent < 0 ? 'menos' : 'más'}`,
+        evidence: `Media de acelerador durante los 2 s posteriores al punto de mínima velocidad: referencia ${throttle.referenceMean.toFixed(0)}%, comparada ${throttle.comparedMean.toFixed(0)}% (${throttle.deltaPoints.toFixed(0)} puntos porcentuales).`,
+        distanceRanges: [{ start: throttle.relativeDistance, end: throttle.endRelativeDistance }],
+      });
+    }
+
+    if (braking && braking.deltaMeters < -5) {
+      const speedAtBrake = nearestPoint(comparison.points, braking.relativeDistance);
+      if (speedAtBrake && speedAtBrake.compared.speedKph <= speedAtBrake.reference.speedKph - 3) {
+        findings.push({
+          id: 'braking-experiment',
+          title: 'Prueba sugerida',
+          value: 'Retrasar la frenada 3–5 m',
+          evidence: `En esta zona la vuelta comparada inicia la frenada unos ${Math.abs(braking.deltaMeters).toFixed(0)} m antes y registra menor velocidad. En una tanda controlada, prueba a retrasar ligeramente el punto de frenada y compara salida, estabilidad y tiempo; no es una garantía de mejora.`,
+          distanceRanges: [{ start: Math.max(0, braking.relativeDistance - 0.01), end: Math.min(1, braking.relativeDistance + 0.01) }],
+        });
+      }
+    }
+
+    const tyre = compareFrontTyreTemperature(comparison);
+    if (tyre && Math.abs(tyre.deltaCelsius) >= 2) {
+      findings.push({
+        id: 'front-tyre-temperature',
+        title: tyre.deltaCelsius > 0 ? 'Mayor temperatura media en los neumáticos delanteros' : 'Menor temperatura media en los neumáticos delanteros',
+        value: `${tyre.deltaCelsius > 0 ? '+' : ''}${tyre.deltaCelsius.toFixed(1)} °C`,
+        evidence: `Media de temperatura del núcleo delantero (ruedas izquierda y derecha) en las muestras alineadas: referencia ${tyre.referenceMean.toFixed(1)} °C, comparada ${tyre.comparedMean.toFixed(1)} °C. Canal variable en ambas vueltas.`,
+      });
+    }
+  }
+
+  return findings.slice(0, 8);
+}
+
+function compareBrakeOnset(comparison: AssettoLapComparison) {
+  const onsets = (side: 'reference' | 'compared', totalDistance: number) => comparison.points.flatMap((point, index) => {
+    if (index === 0 || point[side].brake < 0.2 || comparison.points[index - 1][side].brake >= 0.2) return [];
+    if (comparison.points.slice(index, index + 2).some((next) => next[side].brake < 0.2)) return [];
+    return [{ relativeDistance: point.relativeDistance, distance: point.relativeDistance * totalDistance }];
+  });
+  const reference = onsets('reference', comparison.referenceDistanceMeters);
+  const compared = onsets('compared', comparison.comparedDistanceMeters);
+  const pairs = reference.flatMap((ref) => {
+    const nearest = compared.reduce<typeof compared[number] | null>((best, item) =>
+      best == null || Math.abs(item.relativeDistance - ref.relativeDistance) < Math.abs(best.relativeDistance - ref.relativeDistance) ? item : best, null);
+    return nearest && Math.abs(nearest.relativeDistance - ref.relativeDistance) <= 0.06
+      ? [{ reference: ref, compared: nearest, deltaMeters: nearest.distance - ref.distance }]
+      : [];
+  });
+  const largest = pairs.sort((first, second) => Math.abs(second.deltaMeters) - Math.abs(first.deltaMeters))[0];
+  return largest ? {
+    referenceMeters: largest.reference.distance,
+    comparedMeters: largest.compared.distance,
+    relativeDistance: (largest.reference.relativeDistance + largest.compared.relativeDistance) / 2,
+    deltaMeters: largest.deltaMeters,
+  } : null;
+}
+
+function nearestPoint<T extends { relativeDistance: number }>(points: T[], relativeDistance: number): T | null {
+  return points.reduce<T | null>((best, point) =>
+    best == null || Math.abs(point.relativeDistance - relativeDistance) < Math.abs(best.relativeDistance - relativeDistance) ? point : best, null);
+}
+
+function compareThrottle(comparison: AssettoLapComparison) {
+  const lowSpeedPoint = comparison.points.reduce<number | null>((best, point, index, points) => {
+    const speedDifference = point.compared.speedKph - point.reference.speedKph;
+    if (speedDifference > -3) return best;
+    return best == null || speedDifference < points[best].compared.speedKph - points[best].reference.speedKph ? index : best;
+  }, null);
+  if (lowSpeedPoint == null) return null;
+  const anchor = comparison.points[lowSpeedPoint];
+  const endReference = anchor.reference.elapsedSeconds + 2;
+  const endCompared = anchor.compared.elapsedSeconds + 2;
+  const samples = comparison.points.filter((point) =>
+    point.reference.elapsedSeconds >= anchor.reference.elapsedSeconds && point.reference.elapsedSeconds <= endReference &&
+    point.compared.elapsedSeconds >= anchor.compared.elapsedSeconds && point.compared.elapsedSeconds <= endCompared);
+  if (samples.length < 3) return null;
+  const referenceMean = samples.reduce((sum, point) => sum + point.reference.throttle, 0) / samples.length * 100;
+  const comparedMean = samples.reduce((sum, point) => sum + point.compared.throttle, 0) / samples.length * 100;
+  if (referenceMean < 5) return null;
+  return {
+    referenceMean,
+    comparedMean,
+    deltaPoints: comparedMean - referenceMean,
+    relativePercent: (comparedMean - referenceMean) / referenceMean * 100,
+    relativeDistance: anchor.relativeDistance,
+    endRelativeDistance: samples.at(-1)?.relativeDistance ?? anchor.relativeDistance,
+  };
+}
+
+function compareFrontTyreTemperature(comparison: AssettoLapComparison) {
+  const wheels = [
+    ['tyreCoreFl', 'tyreCoreFl'], ['tyreCoreFr', 'tyreCoreFr'],
+  ] as const;
+  // Assetto adapter uses 26 °C as its missing-channel fallback. Ignore constant wheels on either lap.
+  const availableWheels = wheels.filter(([referenceKey, comparedKey]) => {
+    const reference = comparison.points.map((point) => point.reference[referenceKey]);
+    const compared = comparison.points.map((point) => point.compared[comparedKey]);
+    return Math.max(...reference) - Math.min(...reference) > 1 && Math.max(...compared) - Math.min(...compared) > 1;
+  });
+  if (!availableWheels.length) return null;
+  const reference = comparison.points.flatMap((point) => availableWheels.map(([key]) => point.reference[key]));
+  const compared = comparison.points.flatMap((point) => availableWheels.map(([, key]) => point.compared[key]));
+  const referenceMean = reference.reduce((sum, value) => sum + value, 0) / reference.length;
+  const comparedMean = compared.reduce((sum, value) => sum + value, 0) / compared.length;
+  return { referenceMean, comparedMean, deltaCelsius: comparedMean - referenceMean };
 }
 
 export function ReportPanel({
@@ -106,7 +227,7 @@ export function ReportPanel({
   const explanationController = useRef<AbortController | null>(null);
   const chatController = useRef<AbortController | null>(null);
   const chatMessagesEnd = useRef<HTMLDivElement | null>(null);
-  const reportKey = JSON.stringify([title, subtitle, sourceNote, findings, referenceLap, comparedLap]);
+  const reportKey = JSON.stringify([title, subtitle, chatContext, sourceNote, findings, referenceLap, comparedLap]);
 
   useEffect(() => {
     explanationController.current?.abort();
@@ -231,14 +352,14 @@ export function ReportPanel({
           <Sparkles size={14} /> {isExplaining ? 'Generando explicación…' : explanation ? 'Volver a generar' : 'Explicar con IA generativa'}
         </button>
         {explanationError && <p className="race-engineer-ai-error" role="alert">{explanationError}</p>}
-        {explanation && <div className="race-engineer-ai-result" aria-live="polite"><strong>Explicación generativa</strong><p><FormattedAnswer text={explanation} /></p><small>{explanationModel} · basada en los hallazgos mostrados; verifica siempre los datos de origen.</small></div>}
+        {explanation && <div className="race-engineer-ai-result" aria-live="polite"><strong>Explicación generativa</strong><FormattedAnswer text={explanation} /><small>{explanationModel} · basada en los hallazgos mostrados; verifica siempre los datos de origen.</small></div>}
       </div>
 
       <section className="race-engineer-chat" aria-label="Chat con Race Engineer">
         <header><MessageCircle size={15} /><strong>Pregunta al Race Engineer</strong><span>Respuestas basadas en estos hallazgos</span></header>
         {chatMessages.length > 0 && <div className="race-engineer-chat-messages" aria-live="polite">
           {chatMessages.map((message, index) => <article className={`race-engineer-chat-message ${message.role}`} key={`${index}-${message.role}`}>
-            <small>{message.role === 'user' ? 'TÚ' : 'RACE ENGINEER'}</small><p><FormattedAnswer text={message.content} /></p>
+            <small>{message.role === 'user' ? 'TÚ' : 'RACE ENGINEER'}</small><FormattedAnswer text={message.content} />
           </article>)}
           {isChatSending && <div className="race-engineer-chat-pending">Race Engineer está respondiendo…</div>}
           <div ref={chatMessagesEnd} />
@@ -266,13 +387,29 @@ export function ReportPanel({
 }
 
 function FormattedAnswer({ text }: { readonly text: string }) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  return <>{parts.map((part, index) => part.startsWith('**') && part.endsWith('**')
-    ? <strong key={index}>{part.slice(2, -2)}</strong>
-    : <span key={index}>{part}</span>)}</>;
+  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const points = lines.length > 1
+    ? lines
+    : (lines[0] ?? '').split(/\s+(?=(?:•|-(?!\*)|\d+[.)])\s)/).filter(Boolean);
+  return <ul className="race-engineer-answer-points">{points.map((line, index) => {
+    const normalized = line.replace(/^(?:[-*•]|\d+[.)])\s*/, '').replace(/\\([*_])/g, '$1');
+    return <li key={index}>{formatInlineAnswer(normalized, index)}</li>;
+  })}</ul>;
 }
 
-export function buildF1Findings(comparison: LapComparison, referenceSectorTimes: (number | null)[] = []): Finding[] {
+function formatInlineAnswer(text: string, lineIndex: number) {
+  const tokens = text.split(/(\*{1,2}[^*\n]+?\*{1,2}|_{1,2}[^_\n]+?_{1,2})/g).filter(Boolean);
+  return tokens.map((token, index) => {
+    const match = token.match(/^(\*{1,2}|_{1,2})(.+?)(\*{1,2}|_{1,2})$/);
+    if (match && match[1][0] === match[3][0]) {
+      return <strong key={`${lineIndex}-bold-${index}`}>{match[2]}</strong>;
+    }
+    // Strip malformed/unmatched Markdown markers from model output instead of showing raw syntax.
+    return <span key={`${lineIndex}-text-${index}`}>{token.replace(/\*{1,2}|_{1,2}/g, '')}</span>;
+  });
+}
+
+export function buildF1Findings(comparison: LapComparison, referenceSectorTimes: (number | null)[] = [], corners: CornerSummary[] = []): Finding[] {
   const sectorFindings = comparison.sectorDeltasSeconds
     .map((delta, index) => ({ delta, index }))
     .filter(({ delta }) => delta != null && delta >= MIN_NOTABLE_SECTOR_DELTA_SECONDS)
@@ -293,9 +430,93 @@ export function buildF1Findings(comparison: LapComparison, referenceSectorTimes:
       };
     });
 
-  return sectorFindings.length > 0
-    ? sectorFindings.slice(0, 3)
-    : [buildPeakDeltaFinding(comparison)].filter((finding): finding is Finding => finding != null);
+  const cornerFinding = buildCornerFinding(comparison, corners);
+  const brakingFinding = buildF1BrakingFinding(comparison, corners);
+  const throttleFinding = buildF1ThrottleFinding(comparison);
+  const prioritized = [
+    ...sectorFindings.slice(0, 2),
+    ...(cornerFinding ? [cornerFinding] : []),
+    ...(brakingFinding ? [brakingFinding] : []),
+    ...(brakingFinding?.value.includes('antes') ? [{
+      id: 'braking-experiment',
+      title: 'Prueba sugerida',
+      value: 'Retrasar la frenada 3–5 m',
+      evidence: 'La vuelta comparada inicia la frenada antes en esta zona. En una tanda controlada, prueba a retrasar ligeramente el punto de frenada y compara velocidad mínima, estabilidad, salida y tiempo; no es una garantía de mejora.',
+      distanceRanges: brakingFinding.distanceRanges,
+    }] : []),
+    ...(throttleFinding ? [throttleFinding] : []),
+    ...(!sectorFindings.length && !cornerFinding ? [buildPeakDeltaFinding(comparison)].filter((finding): finding is Finding => finding != null) : []),
+  ];
+  return prioritized.slice(0, 4);
+}
+
+function buildCornerFinding(comparison: LapComparison, corners: CornerSummary[]): Finding | null {
+  if (!corners.length || !comparison.points.length) return null;
+  const totalDistance = comparison.points.at(-1)!.referenceDistanceMeters;
+  if (totalDistance <= 0) return null;
+  const candidates = corners.map((corner) => {
+    const relative = corner.distanceMeters / totalDistance;
+    const point = comparison.points.reduce((best, item) => Math.abs(item.relativeDistance - relative) < Math.abs(best.relativeDistance - relative) ? item : best, comparison.points[0]);
+    return { corner, relative, delta: point.comparedSpeedKph - point.referenceSpeedKph };
+  }).filter((item) => Math.abs(item.delta) >= 5);
+  const largest = candidates.sort((first, second) => Math.abs(second.delta) - Math.abs(first.delta))[0];
+  if (!largest) return null;
+  return {
+    id: 'corner-speed',
+    title: `Curva ${largest.corner.number}: diferencia de velocidad estimada`,
+    value: `${largest.delta > 0 ? '+' : ''}${largest.delta.toFixed(0)} km/h`,
+    evidence: `Velocidad comparada − referencia en la muestra más cercana a la posición de curva registrada (${largest.corner.distanceMeters.toFixed(0)} m). La posición de curva es aproximada, no el vértice medido.`,
+    distanceRanges: [{ start: Math.max(0, largest.relative - 0.008), end: Math.min(1, largest.relative + 0.008) }],
+  };
+}
+
+function buildF1BrakingFinding(comparison: LapComparison, corners: CornerSummary[]): Finding | null {
+  const totalDistance = comparison.points.at(-1)?.referenceDistanceMeters ?? 0;
+  if (totalDistance <= 0) return null;
+  const zones = corners.length ? corners.map((corner) => ({ number: corner.number, relative: corner.distanceMeters / totalDistance })) : [];
+  let best: { number: number | null; delta: number; relative: number; ref: number; cmp: number } | null = null;
+  for (const zone of zones) {
+    const start = Math.max(0, zone.relative - 0.08);
+    const end = zone.relative;
+    const range = comparison.points.filter((point) => point.relativeDistance >= start && point.relativeDistance <= end);
+    const refPoint = range.find((point) => point.referenceBrakePercent >= 15);
+    const cmpPoint = range.find((point) => point.comparedBrakePercent >= 15);
+    if (!refPoint || !cmpPoint) continue;
+    const refDistance = refPoint.referenceDistanceMeters;
+    const cmpDistance = cmpPoint.comparedDistanceMeters;
+    const delta = cmpDistance - refDistance;
+    if (Math.abs(delta) >= 5 && (!best || Math.abs(delta) > Math.abs(best.delta))) best = { number: zone.number, delta, relative: (refPoint.relativeDistance + cmpPoint.relativeDistance) / 2, ref: refDistance, cmp: cmpDistance };
+  }
+  if (!best) return null;
+  return {
+    id: 'braking-point',
+    title: best.number == null ? 'Inicio de frenada estimado' : `Curva ${best.number}: inicio de frenada estimado`,
+    value: `${Math.abs(best.delta).toFixed(0)} m ${best.delta > 0 ? 'después' : 'antes'}`,
+    evidence: `Primer cruce del 15% de freno en el tramo previo a la curva: referencia ${best.ref.toFixed(0)} m, comparada ${best.cmp.toFixed(0)} m. Estimación basada en muestras alineadas por distancia.`,
+    distanceRanges: [{ start: best.relative, end: best.relative }],
+  };
+}
+
+function buildF1ThrottleFinding(comparison: LapComparison): Finding | null {
+  const candidate = comparison.points.reduce<{ index: number; deficit: number } | null>((best, point, index) => {
+    const deficit = point.comparedSpeedKph - point.referenceSpeedKph;
+    return deficit <= -5 && (!best || deficit < best.deficit) ? { index, deficit } : best;
+  }, null);
+  if (!candidate) return null;
+  const start = comparison.points[candidate.index];
+  const endDistance = start.relativeDistance + 0.015;
+  const window = comparison.points.filter((point) => point.relativeDistance >= start.relativeDistance && point.relativeDistance <= endDistance);
+  if (window.length < 3) return null;
+  const ref = window.reduce((sum, point) => sum + point.referenceThrottlePercent, 0) / window.length;
+  const cmp = window.reduce((sum, point) => sum + point.comparedThrottlePercent, 0) / window.length;
+  if (ref < 5 || cmp - ref > -5) return null;
+  return {
+    id: 'throttle-application',
+    title: 'Menos acelerador en la salida de la zona lenta',
+    value: `${Math.abs((cmp - ref) / ref * 100).toFixed(0)}% menos`,
+    evidence: `Media en el siguiente 1,5% de distancia: referencia ${ref.toFixed(0)}%, comparada ${cmp.toFixed(0)}% (${(cmp - ref).toFixed(0)} puntos porcentuales).`,
+    distanceRanges: [{ start: start.relativeDistance, end: Math.min(1, endDistance) }],
+  };
 }
 
 function buildPeakDeltaFinding(comparison: LapComparison): Finding | null {
@@ -319,4 +540,8 @@ function buildPeakDeltaFinding(comparison: LapComparison): Finding | null {
 
 function formatDelta(seconds: number) {
   return `+${seconds.toFixed(3)} s`;
+}
+
+function formatSignedDelta(seconds: number) {
+  return `${seconds > 0 ? '+' : seconds < 0 ? '−' : ''}${Math.abs(seconds).toFixed(3)} s`;
 }

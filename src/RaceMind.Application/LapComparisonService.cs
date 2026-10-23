@@ -25,6 +25,8 @@ public sealed class LapComparisonService
 
             points.Add(new LapComparisonPoint(
                 relativeDistance,
+                referencePoint.DistanceMeters,
+                comparedPoint.DistanceMeters,
                 referencePoint.ElapsedSeconds,
                 comparedPoint.ElapsedSeconds,
                 comparedPoint.ElapsedSeconds - referencePoint.ElapsedSeconds,

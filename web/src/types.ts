@@ -152,6 +152,8 @@ export interface CornerSummary {
 
 export interface ComparisonPoint {
   relativeDistance: number;
+  referenceDistanceMeters: number;
+  comparedDistanceMeters: number;
   referenceElapsedSeconds: number;
   comparedElapsedSeconds: number;
   deltaElapsedSeconds: number;
@@ -231,6 +233,8 @@ export interface AssettoLapComparison {
   referenceLapTimeSeconds: number;
   comparedLapTimeSeconds: number;
   deltaLapTimeSeconds: number;
+  referenceDistanceMeters: number;
+  comparedDistanceMeters: number;
   points: AssettoComparisonPoint[];
 }
 

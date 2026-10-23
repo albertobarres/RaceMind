@@ -26,7 +26,7 @@ public sealed class RaceEngineerExplanationServiceTests
         Assert.Equal("test-key", handler.AuthorizationParameter);
         Assert.DoesNotContain("temperature", handler.RequestBody, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("max_completion_tokens", handler.RequestBody);
-        Assert.Contains("800", handler.RequestBody);
+        Assert.Contains("8000", handler.RequestBody);
     }
 
     [Fact]
@@ -172,6 +172,23 @@ public sealed class RaceEngineerExplanationServiceTests
             service.ChatAsync(new RaceEngineerChatRequest(report, "¿Qué ha ocurrido?", []), CancellationToken.None));
 
         Assert.Contains(expectedReason, exception.Message);
+    }
+
+    [Fact]
+    public async Task ChatAsync_UsesLargerOutputBudgetForReasoningModels()
+    {
+        var handler = new RecordingHandler("""{"choices":[{"finish_reason":"stop","message":{"content":"Prueba a retrasar la frenada unos metros y valida la salida."}}]}""");
+        var service = new OpenAiCompatibleRaceEngineerExplanationService(
+            new HttpClient(handler), "https://example.test/v1/chat/completions", "test-key", "reasoning-model");
+        var report = new RaceEngineerExplanationRequest("Assetto Corsa", 5, 8, "Frena antes en la curva y sale con menos gas.",
+            [new RaceEngineerFinding("Frenada", "8 m antes", "Freno detectado antes y menor velocidad" )], "Estimaciones de una vuelta; validar en pista.");
+
+        var result = await service.ChatAsync(new RaceEngineerChatRequest(report, "¿Qué recomendación me das para mejorar la vuelta?", []), CancellationToken.None);
+
+        Assert.Contains("retrasar la frenada", result.Explanation);
+        using var body = System.Text.Json.JsonDocument.Parse(handler.RequestBody);
+        Assert.Equal(8000, body.RootElement.GetProperty("max_completion_tokens").GetInt32());
+        Assert.Contains("lista de puntos con guiones", body.RootElement.GetProperty("messages")[0].GetProperty("content").GetString());
     }
 
     private sealed class RecordingHandler(string responseBody, HttpStatusCode statusCode = HttpStatusCode.OK) : HttpMessageHandler

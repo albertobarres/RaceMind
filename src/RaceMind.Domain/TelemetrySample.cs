@@ -6,7 +6,8 @@ public sealed record TelemetrySample(double ElapsedSeconds, double DistanceMeter
 public sealed record LapTelemetry(int LapNumber, double? LapTimeSeconds, double? Sector1Seconds, double? Sector2Seconds, double? Sector3Seconds, string? TyreCompound, 
     int? Stint, IReadOnlyList<TelemetrySample> Samples);
 
-public sealed record LapComparisonPoint(double RelativeDistance, double ReferenceElapsedSeconds, double ComparedElapsedSeconds, double DeltaElapsedSeconds, 
+public sealed record LapComparisonPoint(double RelativeDistance, double ReferenceDistanceMeters, double ComparedDistanceMeters,
+    double ReferenceElapsedSeconds, double ComparedElapsedSeconds, double DeltaElapsedSeconds,
     double ReferenceSpeedKph, double ComparedSpeedKph, double DeltaSpeedKph, double ReferenceThrottlePercent, double ComparedThrottlePercent, 
     double ReferenceBrakePercent, double ComparedBrakePercent);
 

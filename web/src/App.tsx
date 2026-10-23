@@ -704,8 +704,8 @@ function LapComparisonSection(props: {
         title="Oportunidades observadas"
         subtitle="Hallazgos derivados de la comparación seleccionada; no son recomendaciones ni conclusiones causales."
         chatContext={buildF1ChatContext(session, selectedDriver, availableLaps, reference, compared, comparison)}
-        sourceNote="Se describen diferencias observadas entre dos vueltas. La explicación generativa, si se solicita, se limita a estos hallazgos; no se infieren causas ni se usa ML."
-        findings={buildF1Findings(comparison, [reference?.sector1Seconds ?? null, reference?.sector2Seconds ?? null, reference?.sector3Seconds ?? null])}
+        sourceNote="Los tiempos de vuelta y sector son registros de la fuente. Diferencias de velocidad, acelerador y frenada se calculan comparando muestras alineadas por distancia; las referencias a curva e inicio de frenada son aproximadas. Esta fuente no incluye temperatura de neumáticos. No se infieren causas ni se usa ML."
+        findings={buildF1Findings(comparison, [reference?.sector1Seconds ?? null, reference?.sector2Seconds ?? null, reference?.sector3Seconds ?? null], corners)}
         referenceLap={comparison.referenceLap}
         comparedLap={comparison.comparedLap}
       />}
@@ -750,7 +750,7 @@ function buildF1ChatContext(
     `Velocidad referencia: ${stats(comparison.points.map((point) => point.referenceSpeedKph))} km/h; comparada: ${stats(comparison.points.map((point) => point.comparedSpeedKph))} km/h.`,
     `Acelerador referencia / comparada: ${stats(comparison.points.map((point) => point.referenceThrottlePercent))}% / ${stats(comparison.points.map((point) => point.comparedThrottlePercent))}%. Freno: ${stats(comparison.points.map((point) => point.referenceBrakePercent))}% / ${stats(comparison.points.map((point) => point.comparedBrakePercent))}%.`,
     `Perfil del delta por distancia: ${segments.join('; ')}.`,
-    `Limitación: no se dispone aquí de temperatura de neumático ni aceleraciones longitudinales/laterales para esta fuente. Asociación temporal o por sector no demuestra causalidad.`,
+    `Limitación: no se dispone aquí de temperatura de neumático ni aceleraciones longitudinales/laterales. Las distancias de curva y frenada son estimaciones basadas en la distancia de telemetría y puntos de curva del circuito; asociación temporal o por sector no demuestra causalidad.`,
   ].join('\n');
 }
 

@@ -97,8 +97,9 @@ export function AssettoCorsaWorkspace({ details, comparison, comparisonLoading, 
         </div>}
         {comparison && <ReportPanel
           title="Oportunidades observadas · Assetto Corsa"
-          subtitle={buildAssettoChatContext(details, reference, compared, comparison)}
-          sourceNote="Los hallazgos son observaciones de esta sesión simulada. La reconstrucción de vuelta usa proximidad al origen. La explicación generativa, si se solicita, se limita a estas observaciones; no se usa ML."
+          subtitle="Comparación de las vueltas seleccionadas. Los datos detallados de sesión se usan como contexto para responder en el chat."
+          chatContext={buildAssettoChatContext(details, reference, compared, comparison)}
+          sourceNote="Los hallazgos son observaciones de esta sesión simulada. Las vueltas se reconstruyen por proximidad al origen y las distancias por trazada; la curva/vértice no está anotada, por lo que el inicio de frenada es una estimación por umbral del canal. Temperaturas solo se informan si varían y el canal no parece ausente. La explicación generativa se limita a estas observaciones; no se usa ML ni se infieren causas."
           findings={buildContinuousLapFindings(comparison)}
           referenceLap={comparison.referenceLap}
           comparedLap={comparison.comparedLap}
@@ -250,7 +251,8 @@ function TyreCards({ comparison }: { readonly comparison: AssettoLapComparison }
   return <div className="assetto-tyres-grid">{keys.map((key, index) => {
     const refValues = comparison.points.map((point) => point.reference[key]); const cmpValues = comparison.points.map((point) => point.compared[key]);
     const avg = (items: number[]) => items.reduce((total, value) => total + value, 0) / Math.max(items.length, 1);
-    return <article key={key}><small>{labels[index]}</small><strong>{avg(refValues).toFixed(1)}° <i>/</i> {avg(cmpValues).toFixed(1)}°</strong><span>reference / compared · core °C</span></article>;
+    const available = Math.max(...refValues) - Math.min(...refValues) > 1 && Math.max(...cmpValues) - Math.min(...cmpValues) > 1;
+    return <article key={key}><small>{labels[index]}</small><strong>{available ? <>{avg(refValues).toFixed(1)}° <i>/</i> {avg(cmpValues).toFixed(1)}°</> : '—'}</strong><span>{available ? 'reference / compared · core °C' : 'temperature channel unavailable / constant'}</span></article>;
   })}</div>;
 }
 
