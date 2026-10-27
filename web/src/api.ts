@@ -17,8 +17,31 @@ import type {
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5171/api';
 const normalizedApiBase = apiBase.replace(/\/$/, '');
 
+export interface AuthUser {
+  username: string;
+  displayName: string;
+  csrfToken: string;
+}
+
+let csrfToken = '';
+
+async function loadCurrentUser() {
+  const user = await request<AuthUser>('/auth/me');
+  csrfToken = user.csrfToken;
+  return user;
+}
+
+async function login(username: string, password: string) {
+  const user = await post<AuthUser>('/auth/login', { username, password });
+  csrfToken = user.csrfToken;
+  return user;
+}
+
 async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(`${normalizedApiBase}${path}`, { signal });
+  const response = await fetch(`${normalizedApiBase}${path}`, { signal, credentials: 'include' });
+  if (response.status === 401 && !path.startsWith('/auth/')) {
+    window.dispatchEvent(new Event('racemind:session-expired'));
+  }
   if (!response.ok) {
     const payload = await response.json().catch(() => null) as { message?: string } | null;
     throw new Error(payload?.message ?? `La API respondió ${response.status} (${response.statusText})`);
@@ -44,6 +67,13 @@ export interface RaceEngineerChatRequest {
 }
 
 export const api = {
+  currentUser: loadCurrentUser,
+  login,
+  logout: async () => {
+    const response = await fetch(`${normalizedApiBase}/auth/logout`, { method: 'POST', credentials: 'include', headers: { 'X-RaceMind-CSRF': csrfToken } });
+    if (!response.ok) throw new Error(`No se pudo cerrar la sesión (${response.status}).`);
+    csrfToken = '';
+  },
   assetUrl: (path: string | null) => path ? `${normalizedApiBase}${path.startsWith('/') ? path : `/${path}`}` : null,
   catalog: (signal?: AbortSignal) => request<TelemetryCatalog>('/catalog', signal),
   motoGpEvents: (year: number, signal?: AbortSignal) => request<MotoGpEventSummary[]>(`/motorcycles/motogp/${year}/events`, signal),
@@ -82,10 +112,14 @@ export interface RaceEngineerExplanation {
 async function post<T>(path: string, payload: unknown, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${normalizedApiBase}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-RaceMind-CSRF': csrfToken },
     body: JSON.stringify(payload),
     signal,
+    credentials: 'include',
   });
+  if (response.status === 401 && !path.startsWith('/auth/')) {
+    window.dispatchEvent(new Event('racemind:session-expired'));
+  }
   if (!response.ok) {
     const result = await response.json().catch(() => null) as { message?: string } | null;
     if (response.status === 503) throw new Error('La IA generativa no está configurada en la API. Configura endpoint, clave y modelo.');

@@ -1,8 +1,51 @@
 using RaceMind.Application;
 using RaceMind.Domain;
 using RaceMind.Infrastructure;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using System.Collections.Concurrent;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var configuredUsername = builder.Configuration["Authentication:Username"];
+var configuredPassword = builder.Configuration["Authentication:Password"];
+var configuredDisplayName = builder.Configuration["Authentication:DisplayName"];
+var authenticationConfigured = !string.IsNullOrWhiteSpace(configuredUsername) &&
+                               !string.IsNullOrWhiteSpace(configuredPassword);
+
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.Cookie.Name = "RaceMind.Session";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.IsEssential = true;
+        options.Cookie.SameSite = builder.Environment.IsDevelopment() ? SameSiteMode.Lax : SameSiteMode.None;
+        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest
+            : CookieSecurePolicy.Always;
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.SlidingExpiration = true;
+        options.Events.OnRedirectToLogin = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        };
+        options.Events.OnRedirectToAccessDenied = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        };
+    });
+builder.Services.AddAuthorization();
+builder.Services.AddSingleton<LoginAttemptLimiter>();
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
 
 var dataRoot = builder.Configuration["TelemetryDataRoot"] ?? builder.Configuration["F1DataRoot"];
 if (string.IsNullOrWhiteSpace(dataRoot))
@@ -31,15 +74,72 @@ builder.Services.AddTransient<IRaceEngineerExplanationService>(serviceProvider =
 builder.Services.AddCors(options => options.AddPolicy("frontend", policy =>
 {
     var origin = builder.Configuration["Frontend:Origin"] ?? "http://localhost:5173";
-    policy.WithOrigins(origin).AllowAnyHeader().AllowAnyMethod();
+    policy.WithOrigins(origin).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
 }));
 
 var app = builder.Build();
+app.UseForwardedHeaders();
 app.UseCors("frontend");
+app.UseAuthentication();
+app.UseAuthorization();
+app.Use(async (context, next) =>
+{
+    var isLogin = context.Request.Path.Equals("/api/auth/login", StringComparison.OrdinalIgnoreCase);
+    if (context.Request.Method == HttpMethods.Post && context.Request.Path.StartsWithSegments("/api") && !isLogin && context.User.Identity?.IsAuthenticated == true)
+    {
+        var expectedToken = context.User.FindFirstValue("csrf_token");
+        var providedToken = context.Request.Headers["X-RaceMind-CSRF"].FirstOrDefault();
+        if (string.IsNullOrEmpty(expectedToken) || !FixedTimeEquals(providedToken, expectedToken))
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(new { message = "La solicitud no superó la validación de seguridad." });
+            return;
+        }
+    }
+
+    await next();
+});
+
+var auth = app.MapGroup("/api/auth").WithTags("Authentication");
+auth.MapGet("/me", (ClaimsPrincipal principal) =>
+{
+    var username = principal.Identity?.Name ?? string.Empty;
+    var displayName = principal.FindFirstValue("display_name") ?? username;
+    return Results.Ok(new { username, displayName, csrfToken = principal.FindFirstValue("csrf_token") });
+}).RequireAuthorization();
+
+auth.MapPost("/login", async (LoginRequest request, HttpContext context, LoginAttemptLimiter loginLimiter) =>
+{
+    if (!authenticationConfigured)
+        return Results.Problem("La autenticación no está configurada en el servidor.", statusCode: StatusCodes.Status503ServiceUnavailable);
+    var remoteAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    if (!loginLimiter.TryRegisterAttempt(remoteAddress))
+        return Results.StatusCode(StatusCodes.Status429TooManyRequests);
+
+    if (!FixedTimeEquals(request.Username, configuredUsername!) ||
+        !FixedTimeEquals(request.Password, configuredPassword!))
+        return Results.Unauthorized();
+
+    var username = configuredUsername!;
+    var displayName = string.IsNullOrWhiteSpace(configuredDisplayName) ? username : configuredDisplayName;
+    var csrfToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+    var identity = new ClaimsIdentity(
+        [new Claim(ClaimTypes.Name, username), new Claim("display_name", displayName), new Claim("csrf_token", csrfToken)],
+        CookieAuthenticationDefaults.AuthenticationScheme);
+    await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
+    return Results.Ok(new { username, displayName, csrfToken });
+}).AllowAnonymous();
+
+auth.MapPost("/logout", async (HttpContext context) =>
+{
+    await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    return Results.NoContent();
+}).RequireAuthorization();
 
 var api = app.MapGroup("/api").WithTags("RaceMind");
+api.RequireAuthorization();
 
-api.MapGet("/health", () => Results.Ok(new { status = "ok", service = "RaceMind.Api" })).WithName("Health");
+api.MapGet("/health", () => Results.Ok(new { status = "ok", service = "RaceMind.Api" })).AllowAnonymous().WithName("Health");
 
 api.MapPost("/race-engineer/explain", async Task<IResult> (
     RaceEngineerExplanationRequest request,
@@ -286,6 +386,13 @@ api.MapGet("/motorcycles/motogp/{year:int}/events/{eventCode}/sessions/{sessionC
 
 app.Run();
 
+static bool FixedTimeEquals(string? provided, string configured)
+{
+    var providedHash = SHA256.HashData(Encoding.UTF8.GetBytes(provided ?? string.Empty));
+    var configuredHash = SHA256.HashData(Encoding.UTF8.GetBytes(configured));
+    return CryptographicOperations.FixedTimeEquals(providedHash, configuredHash);
+}
+
 static string? FindTelemetryDataRoot(string startDirectory)
 {
     var current = new DirectoryInfo(startDirectory);
@@ -309,3 +416,34 @@ static string? FindTelemetryDataRoot(string startDirectory)
 }
 
 public partial class Program;
+public sealed record LoginRequest(string? Username, string? Password);
+
+public sealed class LoginAttemptLimiter
+{
+    private static readonly TimeSpan Window = TimeSpan.FromMinutes(1);
+    private const int MaximumAttempts = 5;
+    private readonly ConcurrentDictionary<string, AttemptWindow> _attempts = new(StringComparer.Ordinal);
+
+    public bool TryRegisterAttempt(string key)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var attemptWindow = _attempts.GetOrAdd(key, _ => new AttemptWindow(now));
+        lock (attemptWindow)
+        {
+            if (now - attemptWindow.StartedAt >= Window)
+            {
+                attemptWindow.StartedAt = now;
+                attemptWindow.Count = 0;
+            }
+
+            attemptWindow.Count++;
+            return attemptWindow.Count <= MaximumAttempts;
+        }
+    }
+
+    private sealed class AttemptWindow(DateTimeOffset startedAt)
+    {
+        public DateTimeOffset StartedAt { get; set; } = startedAt;
+        public int Count { get; set; }
+    }
+}

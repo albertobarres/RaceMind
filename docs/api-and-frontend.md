@@ -125,6 +125,23 @@ Convención del delta: **comparada menos referencia**. Delta positivo significa 
 
 El backend permite por defecto el origen `http://localhost:5173` (Vite). Puede cambiarse mediante `Frontend:Origin`.
 
+### Inicio de sesión de usuario único
+
+La API requiere una sesión para acceder a las rutas `/api` (salvo `/api/health` y `/api/auth/*`). El endpoint `/api/auth/login` valida un único usuario configurado en el servidor y devuelve una cookie `HttpOnly`, con expiración de ocho horas. No hay registro de usuarios ni contraseñas predeterminadas en el código.
+
+Configura las credenciales por variables de entorno ASP.NET Core antes de arrancar la API. PowerShell, para la sesión actual:
+
+```powershell
+$env:Authentication__Username = "alberto"
+$env:Authentication__Password = "usa-una-contraseña-larga-y-única"
+$env:Authentication__DisplayName = "Alberto Barres"
+dotnet run --project src/RaceMind.Api --urls http://localhost:5171
+```
+
+Configura la contraseña con un gestor de secretos o variables privadas en despliegue; no la añadas a `appsettings.json`, al frontend ni al repositorio. La cookie usa atributos `HttpOnly` y `SameSite`; la API aplica límites de intentos y validación CSRF en solicitudes autenticadas de escritura. En producción requiere HTTPS. Si web y API se alojan en sitios distintos, el navegador debe aceptar cookies de terceros; es preferible servirlas bajo el mismo dominio o subdominios compatibles y revisar las políticas del navegador.
+
+Para desarrollo local, el frontend sigue usando `http://localhost:5171/api`; las peticiones incluyen credenciales. Inicia sesión con el usuario configurado arriba. El botón de cierre de sesión está junto al perfil del panel lateral.
+
 1. Iniciar el backend desde la raíz del repositorio: `dotnet run --project src/RaceMind.Api --urls http://localhost:5171`.
 2. Instalar Node.js LTS si no está instalado.
 3. En otra terminal ejecutar `cd web`, `npm install` y `npm run dev`.

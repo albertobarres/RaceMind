@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
 import type { CSSProperties } from 'react';
 import {
   Activity,
@@ -8,6 +9,8 @@ import {
   ChevronRight,
   Flag,
   Gauge,
+  LogOut,
+  LockKeyhole,
   MapPin,
   Radio,
   Search,
@@ -20,6 +23,8 @@ import { AssettoCorsaWorkspace } from './AssettoCorsaWorkspace';
 import { KartingWorkspace } from './KartingWorkspace';
 import { buildF1Findings, ReportPanel } from './RaceEngineerReport';
 import { useRaceMindDashboard } from './useRaceMindDashboard';
+import { api } from './api';
+import type { AuthUser } from './api';
 import type { AssettoLapComparison, AssettoSessionDetails, CornerSummary, DriverSummary, KartingLapComparison, KartingSessionDetails, LapComparison, LapSummary, MotoGpEventSummary, MotoGpLapRecord, MotoGpSessionDetails, MotoGpSessionSummary, SessionDetails, SessionSummary, TelemetryCatalog, TelemetryDataset, TelemetrySeries, TelemetryYear } from './types';
 
 function formatLapTime(seconds: number | null | undefined) {
@@ -49,6 +54,70 @@ function compoundClass(compound: string | null) {
 }
 
 export default function App() {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    api.currentUser()
+      .then((authenticatedUser) => { if (active) setUser(authenticatedUser); })
+      .catch(() => { if (active) setUser(null); })
+      .finally(() => { if (active) setCheckingSession(false); });
+    const handleExpiredSession = () => setUser(null);
+    window.addEventListener('racemind:session-expired', handleExpiredSession);
+    return () => {
+      active = false;
+      window.removeEventListener('racemind:session-expired', handleExpiredSession);
+    };
+  }, []);
+
+  if (checkingSession) return <div className="auth-loading"><span className="spinner large" /><span>Comprobando sesión...</span></div>;
+  if (!user) return <LoginScreen onLogin={setUser} />;
+  return <AuthenticatedApp user={user} onLogout={() => setUser(null)} />;
+}
+
+function LoginScreen({ onLogin }: { readonly onLogin: (user: AuthUser) => void }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError('');
+    setSubmitting(true);
+    try {
+      onLogin(await api.login(username.trim(), password));
+    } catch (loginError) {
+      const message = loginError instanceof Error ? loginError.message : '';
+      setError(message.includes('401') ? 'Usuario o contraseña incorrectos.' : message || 'No se pudo iniciar sesión. Inténtalo de nuevo.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <main className="auth-screen">
+      <section className="auth-card">
+        <div className="auth-brand"><span className="brand-mark"><Activity size={21} strokeWidth={2.5} /></span><span>RACE<span className="brand-light">MIND</span><small>TELEMETRY INTELLIGENCE</small></span></div>
+        <div className="auth-kicker"><LockKeyhole size={13} /> ACCESO PRIVADO</div>
+        <h1>Bienvenido de nuevo</h1>
+        <p>Inicia sesión para consultar el análisis de telemetría.</p>
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <label htmlFor="login-username">Usuario</label>
+          <input id="login-username" name="username" autoComplete="username" autoFocus required value={username} onChange={(event) => setUsername(event.target.value)} />
+          <label htmlFor="login-password">Contraseña</label>
+          <input id="login-password" name="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} />
+          {error && <div className="auth-error" role="alert">{error}</div>}
+          <button type="submit" disabled={submitting}>{submitting ? 'Validando…' : 'Iniciar sesión'}<ChevronRight size={16} /></button>
+        </form>
+        <div className="auth-footnote"><span className="status-dot" /> Sesión protegida · RaceMind</div>
+      </section>
+    </main>
+  );
+}
+
+function AuthenticatedApp({ user, onLogout }: { readonly user: AuthUser; readonly onLogout: () => void }) {
   const dashboard = useRaceMindDashboard();
   const {
     catalog,
@@ -93,6 +162,9 @@ export default function App() {
   const reference = laps.find((lap) => lap.number === referenceLap) ?? null;
   const compared = laps.find((lap) => lap.number === comparedLap) ?? null;
   const availableLaps = laps.filter((lap) => lap.hasTelemetry);
+  async function handleLogout() {
+    try { await api.logout(); } finally { onLogout(); }
+  }
   return (
     <div className="app-shell">
       <Sidebar
@@ -111,10 +183,11 @@ export default function App() {
           onChooseKartingSession={chooseKartingSession}
         motoGpEvents={motoGpEvents}
         onHome={resetDashboard}
+        user={user}
       />
 
       <main id="top" className="main-content">
-        <Header grandPrix={selectedSession?.grandPrix ?? selectedMotoGpSession?.session.eventName ?? assettoSession?.circuit ?? kartingSession?.circuit} />
+        <Header grandPrix={selectedSession?.grandPrix ?? selectedMotoGpSession?.session.eventName ?? assettoSession?.circuit ?? kartingSession?.circuit} user={user} onLogout={handleLogout} />
         {error && <ErrorBanner message={error} onClose={() => setError(null)} />}
         <SessionWorkspace
           loading={loading}
@@ -162,10 +235,11 @@ interface SidebarProps {
   readonly onChooseKartingSession: (sessionId: string) => void;
   readonly motoGpEvents: MotoGpEventSummary[];
   readonly onHome: () => void;
+  readonly user: AuthUser;
 }
 
 function Sidebar(props: SidebarProps) {
-  const { catalog, selectedSessionId, selectedMotoGpSessionId, selectedAssettoSessionId, selectedKartingSessionId, selectedYear, loading, search, onSearchChange, onChooseF1Session, onChooseMotoGpSession, onChooseAssettoSession, onChooseKartingSession, motoGpEvents, onHome } = props;
+  const { catalog, selectedSessionId, selectedMotoGpSessionId, selectedAssettoSessionId, selectedKartingSessionId, selectedYear, loading, search, onSearchChange, onChooseF1Session, onChooseMotoGpSession, onChooseAssettoSession, onChooseKartingSession, motoGpEvents, onHome, user } = props;
   return (
     <aside className="sidebar">
       <button className="brand brand-button" type="button" aria-label="Volver a RaceMind inicio y deseleccionar sesión" onClick={onHome}>
@@ -195,7 +269,7 @@ function Sidebar(props: SidebarProps) {
 
       <div className="sidebar-bottom">
         <div className="source-status"><span className="status-dot" /><span><strong>DATA SOURCE</strong><small>TracingInsights · local archive</small></span></div>
-        <div className="profile-chip" title="Alberto Barres · Motorsport analyst"><div className="avatar">AB</div><span><strong>Alberto Barres</strong><small>Motorsport analyst</small></span><ChevronDown size={15} /></div>
+        <div className="profile-chip" title={user.displayName}><div className="avatar">{getInitials(user.displayName)}</div><span><strong>{user.displayName}</strong><small>{user.username}</small></span></div>
       </div>
     </aside>
   );
@@ -498,11 +572,11 @@ function getMotoGpEventsFromCatalog(series: TelemetrySeries) {
   })));
 }
 
-function Header({ grandPrix }: { readonly grandPrix: string | undefined }) {
+function Header({ grandPrix, user, onLogout }: { readonly grandPrix: string | undefined; readonly user: AuthUser; readonly onLogout: () => void }) {
   return (
     <header className="topbar">
       <div className="breadcrumbs" title={grandPrix ?? 'Selecciona un evento'}><span>Analysis</span><span className="crumb-slash">/</span><strong>{grandPrix ?? 'Selecciona un evento'}</strong></div>
-      <div className="topbar-right"><span className="live-pill"><i /> DATA READY</span><span className="topbar-divider" /><span className="user-initials">AB</span></div>
+      <div className="topbar-right"><span className="live-pill"><i /> DATA READY</span><span className="topbar-divider" /><span className="user-initials" title={user.displayName}>{getInitials(user.displayName)}</span><button className="logout-button" type="button" title="Cerrar sesión" aria-label="Cerrar sesión" onClick={onLogout}><LogOut size={15} /></button></div>
     </header>
   );
 }
@@ -999,6 +1073,10 @@ function getDriverInitials(name: string) {
   const nameParts = name.split(' ');
   const lastName = nameParts[nameParts.length - 1] ?? name;
   return lastName.slice(0, 3).toUpperCase();
+}
+
+function getInitials(name: string) {
+  return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'RM';
 }
 
 interface LapSummaryCardProps {
