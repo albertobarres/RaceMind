@@ -99,7 +99,7 @@ export function AssettoCorsaWorkspace({ details, comparison, comparisonLoading, 
           title="Oportunidades observadas · Assetto Corsa"
           subtitle="Comparación de las vueltas seleccionadas. Los datos detallados de sesión se usan como contexto para responder en el chat."
           chatContext={buildAssettoChatContext(details, reference, compared, comparison)}
-          sourceNote="Los hallazgos son observaciones de esta sesión simulada. Las vueltas se reconstruyen por proximidad al origen y las distancias por trazada; la curva/vértice no está anotada, por lo que el inicio de frenada es una estimación por umbral del canal. Temperaturas solo se informan si varían y el canal no parece ausente. La explicación generativa se limita a estas observaciones; no se usa ML ni se infieren causas."
+          sourceNote="Los hallazgos son observaciones de esta sesión simulada. Las vueltas se reconstruyen por proximidad al origen y las distancias por trazada; la curva/vértice no está anotada, por lo que el inicio de frenada es una estimación por umbral del canal. Temperaturas solo se informan si varían y el canal no parece ausente. La explicación generativa se limita a estas observaciones y no se infieren causas."
           findings={buildContinuousLapFindings(comparison)}
           referenceLap={comparison.referenceLap}
           comparedLap={comparison.comparedLap}

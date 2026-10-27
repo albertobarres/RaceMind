@@ -15,7 +15,7 @@ Telemetría/
 |---|---:|---|---|---|
 | F1 / ALO | 40 JSON, ~5 MB | Un `*_tel.json` por vuelta; arrays paralelos bajo `tel` | `time`, `rpm`, `speed`, `gear`, `throttle`, `brake`, `drs`, `distance`, `rel_distance`, `acc_x/y/z`, `x/y/z`, `dataKey`; además `laptimes.json` con tiempos, sectores, compuesto y stint | Candidato recomendado para el primer vertical analítico. `laptimes.json` contiene 39 vueltas; hay 40 archivos y uno presenta solo 3 muestras, por lo que hay que ponerlo en cuarentena y conciliar claves. Las coordenadas X/Y/Z no son GPS confirmado. |
 | Assetto Corsa | 1 CSV, ~133 MB; 91.527 filas de datos | Muestras de alta frecuencia | `timestamp`, `wall_time`, `lap_progress`, `completed_laps`, velocidad, RPM, controles, aceleraciones, pose, suspensión, carga, slip y canales de neumáticos | Exportación problemática: valores numéricos en bruto como `865.722.453` y `12.824.029.922.485.300` no se pueden interpretar con seguridad como decimales. En las filas inspeccionadas `completed_laps` y `lap_progress` siguen en cero. No usar hasta recuperar una exportación interpretable y validar segmentación de vueltas. |
-| Assetto Corsa Competizione | 1 CSV, ~0,32 MB; 476 filas | Agregados/features por vuelta; 8 valores distintos de `Lap` | Circuito, coche, fecha, identificador de piloto, tiempo de vuelta, estadísticas de velocidad/freno/G/dirección, validez/outlier y `cluster_label` Fast/Medium/Slow | Sirve para explorar features agregadas, no para reconstruir telemetría temporal. No hay ID inequívoco de sesión y no se conoce el origen de las etiquetas de cluster; no usarlas como verdad de terreno ML hasta documentarlas. Algunas features numéricas están exportadas en formato ambiguo. |
+| Assetto Corsa Competizione | 1 CSV, ~0,32 MB; 476 filas | Agregados por vuelta; 8 valores distintos de `Lap` | Circuito, coche, fecha, identificador de piloto, tiempo de vuelta, estadísticas de velocidad/freno/G/dirección, validez/outlier y categorías Fast/Medium/Slow | Sirve para explorar datos agregados, no para reconstruir telemetría temporal. No hay ID inequívoco de sesión ni documentación del origen de las categorías. Algunas variables numéricas están exportadas en formato ambiguo. |
 | Forza Motorsport | 1 CSV, ~63 MB; 94.519 filas de datos | Muestras temporales con 86 columnas | RPM, ruedas, slip, temperatura, suspensión, pose, aceleración/velocidad, controles, marcha, distancia, tiempos de vuelta y posición de carrera | También hay valores con puntos repetidos dentro de números (`21.785.471`, etc.). `current_lap_time` parece decimal, pero el formato de otras columnas no es seguro. Confirmar exportador/cultura antes de convertir; no aplicar heurísticas de separador decimal. |
 | Kawasaki Ninja 400 SSP300 | 85 TXT, ~64 MB; 958.854 líneas | JSON Lines de eventos parciales y dispersos, con streams ECU/IMU | `ts`, señales ECU, acelerador, frenos, velocidad, inclinación, suspensión, combustible; eventos IMU con `t`, `seq`, `ax/ay/az`, `gx/gy/gz` | Buen caso posterior para validar extensibilidad a moto, pero no es todavía una fuente de vueltas lista para el MVP. Los registros actualizan subconjuntos de canales, existen dos relojes y se observan retrocesos de `ts`; faltan segmentación de sesión/vuelta y calibración de sensores. |
 
@@ -41,9 +41,9 @@ Telemetría/
 
 ### ACC agregado
 
-- Las 476 filas corresponden a Laguna Seca, McLaren 720S GT3 y fecha 20/10/2024. Aparecen ocho números de vuelta y las categorías Fast/Medium/Slow (288/122/66 filas respectivamente).
+- Las 476 filas corresponden a Laguna Seca, McLaren 720S GT3 y fecha 20/10/2024. Aparecen ocho números de vuelta y las categorías de ritmo Fast/Medium/Slow (288/122/66 filas respectivamente).
 - `LapTime` se observa aproximadamente entre 86 y 132 s. El encabezado especifica velocidad en km/h y throttle/brake en escala 0–100.
-- Todas las filas inspeccionadas tienen `validlap=1` y `outlier=0`; no se explica cómo se generaron `cluster_label` y features derivadas. Varias variables de duración/tiempo contienen números con puntos repetidos. Antes de entrenar, se necesita documentación del pipeline que generó este archivo.
+- Todas las filas inspeccionadas tienen `validlap=1` y `outlier=0`; no se explica cómo se generaron las categorías de ritmo ni las variables derivadas. Varias variables de duración/tiempo contienen números con puntos repetidos. Se necesita documentación del proceso que generó este archivo para interpretar esos campos.
 
 ### CSV temporales de simulador
 
@@ -59,15 +59,13 @@ Telemetría/
 - Si se reconstruyen canales, conservar eventos originales y mantener estado por stream/log; actualizar solo canales presentes, aplicar caducidad máxima a valores arrastrados y marcar cualquier interpolación/imputación. No fabricar una serie uniforme antes de validar sincronización, calibración y límites de sesión.
 - Las escalas/unidades de `ax/ay/az`, `gx/gy/gz` y `bike_lean_angle` no están documentadas en la carpeta.
 
-## Recomendación inicial de análisis y ML
+## Enfoque inicial de análisis
 
 **Fuente inicial:** F1 / ALO por ser acotada, tener telemetría de vuelta de tamaño moderado y una tabla compañera con tiempos/sectores/compuesto/stint. Primero se debe excluir el fichero de tres muestras y conciliar los 40 archivos con las 39 vueltas del resumen.
 
 **Primer vertical determinista:** comparar dos vueltas de la misma sesión, interpolando ambas a posiciones equivalentes de distancia (o distancia relativa) y calcular delta temporal acumulado, velocidades y diferencias de uso de acelerador/freno; resumir por sectores cuando las fronteras estén identificadas. El resultado debe ser reproducible y acompañarse de calidad/unidades de entrada.
 
-**ML:** los 39 registros de vuelta corresponden a un piloto y un evento; no hay etiquetas verificadas de errores de conducción ni volumen suficiente para afirmar generalización. No entrenar todavía. Candidato de investigación para cuando se amplíe el corpus: regresión del delta de tiempo por sector/vuelta a partir de features de telemetría, con partición por eventos/circuitos para evitar fuga y evaluación MAE/RMSE frente a un baseline sencillo. Si no hay target fiable o suficiente variedad, redefinir el caso de ML a partir del nuevo perfilado en lugar de forzarlo.
-
-No elegir ACC como fuente inicial de ML hasta entender su ID de sesión, las etiquetas y el proceso de generación; usar moto como validación de extensibilidad más adelante.
+La primera fuente es F1 / ALO por ser acotada, tener telemetría de vuelta de tamaño moderado y una tabla compañera con tiempos, sectores, compuesto y stint. ACC y moto quedan como fuentes para estudiar en futuras ampliaciones cuando se conozcan mejor sus formatos y metadatos.
 
 ## Nuevas muestras F1 y sesión demo
 
@@ -91,4 +89,4 @@ Los tamaños/perfiles corresponden a la copia local en el momento de la inspecci
 3. Documentar unidades/escalas y reglas de calidad por canal F1; verificar longitudes de arrays, deltas de tiempo, monotonicidad de distancia y fronteras sectoriales.
 4. Para moto, conseguir descripción/calibración de ECU e IMU y la regla que relaciona logs con sesiones/vueltas.
 5. Crear un diccionario de datos versionado: campo origen/canónico, unidad, tipo, escala, eje, frecuencia, transformación, nulabilidad y evidencia.
-6. Ampliar la muestra F1 a varios eventos, pilotos y circuitos antes de fijar el problema ML y sus particiones de evaluación.
+6. Ampliar el perfilado a varios eventos, pilotos y circuitos para comprobar la reutilización del análisis en otras sesiones.

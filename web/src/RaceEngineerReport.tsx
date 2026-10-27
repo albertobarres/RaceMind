@@ -27,7 +27,7 @@ interface ReportProps {
 export function RaceEngineerReport({
   title = 'Oportunidades observadas',
   subtitle = 'Hallazgos derivados de la comparación seleccionada; no son recomendaciones ni conclusiones causales.',
-  sourceNote = 'Se describen diferencias observadas entre dos vueltas. No se infieren causas ni se usa ML o IA generativa en este informe.',
+  sourceNote = 'Se describen diferencias observadas entre dos vueltas. No se infieren causas ni se generan explicaciones con IA en este informe.',
   findings,
   referenceLap,
   comparedLap,

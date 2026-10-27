@@ -7,10 +7,10 @@ El proyecto se plantea independiente del formato y del tipo de vehículo. Los da
 ## Enfoque
 
 ```text
-Fuente de telemetría → adaptador y normalización → análisis → Machine Learning → informe explicativo
+Fuente de telemetría → adaptador y normalización → análisis determinista → informe explicativo con IA generativa
 ```
 
-Los cálculos y hallazgos deben ser reproducibles. La IA generativa, si se incorpora al MVP, explicará resultados estructurados en lugar de recibir telemetría bruta para hacer cálculos.
+Los cálculos y hallazgos deben ser reproducibles. La IA generativa explica resultados estructurados y no recibe telemetría bruta para hacer cálculos.
 
 ## Estado actual
 
@@ -42,7 +42,8 @@ Los ficheros completos de telemetría no se versionan en este repositorio. Consu
 
 - Backend: C#, .NET y ASP.NET Core.
 - Persistencia candidata: PostgreSQL y Entity Framework Core.
-- Análisis y ML: por decidir tras el perfilado; Python es una opción para experimentación.
+- Análisis: métricas y comparaciones reproducibles implementadas en el backend.
+- IA generativa: explicaciones en lenguaje natural de hallazgos estructurados.
 - UI: React + TypeScript (dashboard inicial en `web/`; Blazor queda como alternativa si el alcance cambia).
 - Infraestructura: Git, GitHub y Docker.
 
@@ -101,7 +102,6 @@ dotnet test RaceMind.sln
 - [`docs/architecture/data-model.md`](docs/architecture/data-model.md): propuesta inicial de modelo lógico.
 - [`docs/api-and-frontend.md`](docs/api-and-frontend.md): contrato inicial REST y navegación propuesta para el dashboard.
 - [`docs/decisions/0001-modular-monolith-and-source-adapters.md`](docs/decisions/0001-modular-monolith-and-source-adapters.md): decisiones de arquitectura iniciales.
-- [`docs/decisions/0002-initial-dataset-and-ml-scope.md`](docs/decisions/0002-initial-dataset-and-ml-scope.md): alcance inicial de fuente/caso de uso y límites para ML.
 
 ## Licencias y atribución
 

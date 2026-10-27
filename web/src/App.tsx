@@ -704,7 +704,7 @@ function LapComparisonSection(props: {
         title="Oportunidades observadas"
         subtitle="Hallazgos derivados de la comparación seleccionada; no son recomendaciones ni conclusiones causales."
         chatContext={buildF1ChatContext(session, selectedDriver, availableLaps, reference, compared, comparison)}
-        sourceNote="Los tiempos de vuelta y sector son registros de la fuente. Diferencias de velocidad, acelerador y frenada se calculan comparando muestras alineadas por distancia; las referencias a curva e inicio de frenada son aproximadas. Esta fuente no incluye temperatura de neumáticos. No se infieren causas ni se usa ML."
+        sourceNote="Los tiempos de vuelta y sector son registros de la fuente. Diferencias de velocidad, acelerador y frenada se calculan comparando muestras alineadas por distancia; las referencias a curva e inicio de frenada son aproximadas. Esta fuente no incluye temperatura de neumáticos. No se infieren causas."
         findings={buildF1Findings(comparison, [reference?.sector1Seconds ?? null, reference?.sector2Seconds ?? null, reference?.sector3Seconds ?? null], corners)}
         referenceLap={comparison.referenceLap}
         comparedLap={comparison.comparedLap}

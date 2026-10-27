@@ -292,7 +292,7 @@ function LapComparison({ records, riders, details }: LapComparisonProps) {
             title="Oportunidades observadas · MotoGP"
             subtitle={`Análisis agregado de ${rider?.name ?? 'piloto seleccionado'}; los registros disponibles contienen tiempos de vuelta y sector, no muestras continuas de telemetría.`}
             chatContext={buildMotoGpChatContext(details, records, rider?.name ?? null, reference, compared)}
-            sourceNote="Hallazgos limitados a diferencias de tiempos registradas. No se localizan en el trazado ni se atribuyen a una causa de pilotaje. La explicación generativa, si se solicita, se limita a estos datos; no se usa ML."
+            sourceNote="Hallazgos limitados a diferencias de tiempos registradas. No se localizan en el trazado ni se atribuyen a una causa de pilotaje. La explicación generativa, si se solicita, se limita a estos datos."
             findings={buildMotoGpFindings(reference, compared)}
             referenceLap={reference.lapNumber}
             comparedLap={compared.lapNumber}

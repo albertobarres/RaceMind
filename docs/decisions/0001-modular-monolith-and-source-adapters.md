@@ -11,7 +11,7 @@ RaceMind parte de formatos diferentes (JSON con arrays paralelos, CSV temporal, 
 
 - Empezar con una aplicación/solución organizada como monolito modular.
 - Delimitar adaptadores de ingesta por esquema/proveedor, que traduzcan al modelo canónico y reporten errores de validación.
-- Mantener análisis, ML y generación de explicaciones separados de los detalles de lectura y almacenamiento.
+- Mantener análisis y generación de explicaciones separados de los detalles de lectura y almacenamiento.
 - Añadir un proveedor nuevo cuando exista un caso de uso, no anticipar implementaciones vacías.
 
 ## Consecuencias

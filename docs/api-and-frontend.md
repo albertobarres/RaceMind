@@ -101,7 +101,7 @@ Esbozo inicial de distribución de la pantalla:
 
 ### 4. Informe del ingeniero (posterior)
 
-Presentar hallazgos calculados y validados, después incorporar ML/LLM. El informe no debería calcular de nuevo la comparación ni atribuir causalidad que los datos no acreditan.
+Presentar hallazgos calculados y validados, con explicaciones generativas basadas en esos datos. El informe no debería calcular de nuevo la comparación ni atribuir causalidad que los datos no acreditan.
 
 ### Vista MotoGP
 

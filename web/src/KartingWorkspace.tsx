@@ -79,7 +79,7 @@ export function KartingWorkspace({ details, comparison, comparisonLoading, onCom
           title="Oportunidades observadas · Karting"
           subtitle="Diferencias descriptivas entre segmentos de vuelta comparables, alineados por distancia GPS."
           chatContext={buildKartingChatContext(details, comparison)}
-          sourceNote="Los segmentos se comparan tras filtros de calidad y provienen de una sesión de karting. Las diferencias no identifican causas de conducción. La explicación generativa, si se solicita, se limita a estos datos; no se usa ML."
+          sourceNote="Los segmentos se comparan tras filtros de calidad y provienen de una sesión de karting. Las diferencias no identifican causas de conducción. La explicación generativa, si se solicita, se limita a estos datos."
           findings={buildContinuousLapFindings(comparison)}
           referenceLap={comparison.referenceLap}
           comparedLap={comparison.comparedLap}
