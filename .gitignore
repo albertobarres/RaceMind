@@ -4,6 +4,8 @@
 !.env.example
 secrets.json
 **/appsettings.*.Local.json
+/src/RaceMind.Api/data/users.json
+/src/RaceMind.Api/data/users.json.*.tmp
 
 # Raw/derived telemetry data: keep datasets outside the repository
 /Telemetría/

@@ -11,6 +11,8 @@ import {
   Gauge,
   LogOut,
   LockKeyhole,
+  Trash2,
+  UserRoundPlus,
   MapPin,
   Radio,
   Search,
@@ -56,6 +58,7 @@ function compoundClass(compound: string | null) {
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -72,8 +75,10 @@ export default function App() {
   }, []);
 
   if (checkingSession) return <div className="auth-loading"><span className="spinner large" /><span>Comprobando sesión...</span></div>;
-  if (!user) return <LoginScreen onLogin={setUser} />;
-  return <AuthenticatedApp user={user} onLogout={() => setUser(null)} />;
+  if (!user) return <LoginScreen onLogin={(authenticatedUser) => { setShowAdmin(false); setUser(authenticatedUser); }} />;
+  const logout = () => { setShowAdmin(false); setUser(null); };
+  if (user.role === 'Admin' && showAdmin) return <AdminApp user={user} onLogout={logout} onBack={() => setShowAdmin(false)} />;
+  return <AuthenticatedApp user={user} onLogout={logout} onManageUsers={user.role === 'Admin' ? () => setShowAdmin(true) : undefined} />;
 }
 
 function LoginScreen({ onLogin }: { readonly onLogin: (user: AuthUser) => void }) {
@@ -117,7 +122,93 @@ function LoginScreen({ onLogin }: { readonly onLogin: (user: AuthUser) => void }
   );
 }
 
-function AuthenticatedApp({ user, onLogout }: { readonly user: AuthUser; readonly onLogout: () => void }) {
+function AdminApp({ user, onLogout, onBack }: { readonly user: AuthUser; readonly onLogout: () => void; readonly onBack: () => void }) {
+  const [users, setUsers] = useState<Awaited<ReturnType<typeof api.users>>>([]);
+  const [loading, setLoading] = useState(true);
+  const [username, setUsername] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function refreshUsers() {
+    setLoading(true);
+    try { setUsers(await api.users()); }
+    catch (loadError) { setError(loadError instanceof Error ? loadError.message : 'No se pudieron cargar las cuentas.'); }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { void refreshUsers(); }, []);
+
+  async function createAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError('');
+    setNotice('');
+    setSubmitting(true);
+    try {
+      await api.createUser({ username: username.trim(), displayName: displayName.trim(), password });
+      setUsername('');
+      setDisplayName('');
+      setPassword('');
+      setNotice('La cuenta se ha creado correctamente.');
+      await refreshUsers();
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : 'No se pudo crear la cuenta.');
+    } finally { setSubmitting(false); }
+  }
+
+  async function handleLogout() {
+    try { await api.logout(); } finally { onLogout(); }
+  }
+
+  async function deleteAccount(account: Awaited<ReturnType<typeof api.users>>[number]) {
+    const confirmed = window.confirm(`¿Eliminar la cuenta de ${account.displayName} (${account.username})? Esta acción no se puede deshacer.`);
+    if (!confirmed) return;
+    setError('');
+    setNotice('');
+    setDeletingId(account.id);
+    try {
+      await api.deleteUser(account.id);
+      setUsers((currentUsers) => currentUsers.filter((item) => item.id !== account.id));
+      setNotice(`Se eliminó la cuenta de ${account.displayName}.`);
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'No se pudo eliminar la cuenta.');
+    } finally { setDeletingId(null); }
+  }
+
+  return (
+    <main className="admin-screen">
+      <header className="admin-topbar">
+        <div className="auth-brand"><span className="brand-mark"><Activity size={21} strokeWidth={2.5} /></span><span>RACE<span className="brand-light">MIND</span><small>TELEMETRY INTELLIGENCE</small></span></div>
+        <div className="admin-session"><span className="user-initials">{getInitials(user.displayName)}</span><strong>{user.displayName}</strong><button className="admin-logout" type="button" onClick={onBack}><ChevronRight size={15} className="admin-back-icon" />Volver al análisis</button><button className="admin-logout" type="button" onClick={handleLogout}><LogOut size={15} />Cerrar sesión</button></div>
+      </header>
+      <div className="admin-content">
+        <div className="admin-heading"><div className="auth-kicker"><UserRoundPlus size={14} /> ADMINISTRACIÓN</div><h1>Cuentas de usuario</h1><p>Crea accesos privados para las personas que usarán RaceMind. No hay registro público.</p></div>
+        <div className="admin-grid">
+          <section className="admin-panel">
+            <header><span className="admin-panel-icon"><UserRoundPlus size={17} /></span><div><h2>Crear cuenta</h2><p>La contraseña se guarda de forma segura como hash.</p></div></header>
+            <form className="admin-form" onSubmit={createAccount}>
+              <label htmlFor="new-username">Usuario</label><input id="new-username" required minLength={3} maxLength={32} pattern="[a-zA-Z0-9._-]+" autoComplete="off" placeholder="ej. piloto01" value={username} onChange={(event) => setUsername(event.target.value)} />
+              <small>3–32 caracteres: letras, números, punto, guion o guion bajo.</small>
+              <label htmlFor="new-display-name">Nombre visible</label><input id="new-display-name" required maxLength={80} autoComplete="off" placeholder="Nombre y apellidos" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+              <label htmlFor="new-password">Contraseña inicial</label><input id="new-password" type="password" required minLength={12} maxLength={256} autoComplete="new-password" placeholder="Mínimo 12 caracteres" value={password} onChange={(event) => setPassword(event.target.value)} />
+              {error && <div className="auth-error" role="alert">{error}</div>}{notice && <div className="admin-notice" role="status">{notice}</div>}
+              <button type="submit" disabled={submitting}>{submitting ? 'Creando…' : 'Crear cuenta'}<ChevronRight size={16} /></button>
+            </form>
+          </section>
+          <section className="admin-panel admin-users-panel">
+            <header><span className="admin-panel-icon"><Gauge size={17} /></span><div><h2>Cuentas existentes</h2><p>{users.length} {users.length === 1 ? 'cuenta' : 'cuentas'} registradas</p></div></header>
+            {loading ? <div className="admin-loading"><span className="spinner" />Cargando cuentas…</div> : <div className="admin-user-list">{users.map((account) => <article className="admin-user-row" key={account.id}><div className="avatar">{getInitials(account.displayName)}</div><span><strong>{account.displayName}</strong><small>{account.username} · {account.role === 'Admin' ? 'Administrador' : 'Usuario'}</small></span><i className={account.isActive ? 'admin-active-dot' : 'admin-inactive-dot'} title={account.isActive ? 'Activa' : 'Inactiva'} /><button className="admin-delete-button" type="button" title={`Eliminar cuenta de ${account.username}`} aria-label={`Eliminar cuenta de ${account.username}`} disabled={deletingId === account.id || account.id === users.find((item) => item.username === user.username)?.id || (account.role === 'Admin' && users.filter((item) => item.role === 'Admin' && item.isActive).length === 1)} onClick={() => void deleteAccount(account)}><Trash2 size={15} /></button></article>)}</div>}
+          </section>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function AuthenticatedApp({ user, onLogout, onManageUsers }: { readonly user: AuthUser; readonly onLogout: () => void; readonly onManageUsers?: () => void }) {
   const dashboard = useRaceMindDashboard();
   const {
     catalog,
@@ -187,7 +278,7 @@ function AuthenticatedApp({ user, onLogout }: { readonly user: AuthUser; readonl
       />
 
       <main id="top" className="main-content">
-        <Header grandPrix={selectedSession?.grandPrix ?? selectedMotoGpSession?.session.eventName ?? assettoSession?.circuit ?? kartingSession?.circuit} user={user} onLogout={handleLogout} />
+        <Header grandPrix={selectedSession?.grandPrix ?? selectedMotoGpSession?.session.eventName ?? assettoSession?.circuit ?? kartingSession?.circuit} user={user} onLogout={handleLogout} onManageUsers={onManageUsers} />
         {error && <ErrorBanner message={error} onClose={() => setError(null)} />}
         <SessionWorkspace
           loading={loading}
@@ -572,11 +663,11 @@ function getMotoGpEventsFromCatalog(series: TelemetrySeries) {
   })));
 }
 
-function Header({ grandPrix, user, onLogout }: { readonly grandPrix: string | undefined; readonly user: AuthUser; readonly onLogout: () => void }) {
+function Header({ grandPrix, user, onLogout, onManageUsers }: { readonly grandPrix: string | undefined; readonly user: AuthUser; readonly onLogout: () => void; readonly onManageUsers?: () => void }) {
   return (
     <header className="topbar">
       <div className="breadcrumbs" title={grandPrix ?? 'Selecciona un evento'}><span>Analysis</span><span className="crumb-slash">/</span><strong>{grandPrix ?? 'Selecciona un evento'}</strong></div>
-      <div className="topbar-right"><span className="live-pill"><i /> DATA READY</span><span className="topbar-divider" /><span className="user-initials" title={user.displayName}>{getInitials(user.displayName)}</span><button className="logout-button" type="button" title="Cerrar sesión" aria-label="Cerrar sesión" onClick={onLogout}><LogOut size={15} /></button></div>
+      <div className="topbar-right"><span className="live-pill"><i /> DATA READY</span>{onManageUsers && <button className="manage-users-button" type="button" onClick={onManageUsers}><UserRoundPlus size={14} /> Cuentas</button>}<span className="topbar-divider" /><span className="user-initials" title={user.displayName}>{getInitials(user.displayName)}</span><button className="logout-button" type="button" title="Cerrar sesión" aria-label="Cerrar sesión" onClick={onLogout}><LogOut size={15} /></button></div>
     </header>
   );
 }

@@ -1,9 +1,8 @@
 using RaceMind.Application;
 using RaceMind.Domain;
 using RaceMind.Infrastructure;
+using RaceMind.Api;
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using System.Collections.Concurrent;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication;
@@ -11,11 +10,10 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var configuredUsername = builder.Configuration["Authentication:Username"];
-var configuredPassword = builder.Configuration["Authentication:Password"];
-var configuredDisplayName = builder.Configuration["Authentication:DisplayName"];
-var authenticationConfigured = !string.IsNullOrWhiteSpace(configuredUsername) &&
-                               !string.IsNullOrWhiteSpace(configuredPassword);
+var adminUsername = builder.Configuration["Authentication:Admin:Username"];
+var adminPassword = builder.Configuration["Authentication:Admin:Password"];
+var adminDisplayName = builder.Configuration["Authentication:Admin:DisplayName"];
+var configuredUserStorePath = builder.Configuration["Authentication:UserStorePath"];
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -42,6 +40,15 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 builder.Services.AddAuthorization();
 builder.Services.AddSingleton<LoginAttemptLimiter>();
+builder.Services.Configure<UserStoreOptions>(options =>
+{
+    options.Path = string.IsNullOrWhiteSpace(configuredUserStorePath)
+        ? Path.Combine(builder.Environment.ContentRootPath, "data", "users.json")
+        : Path.IsPathRooted(configuredUserStorePath)
+            ? configuredUserStorePath
+            : Path.Combine(builder.Environment.ContentRootPath, configuredUserStorePath);
+});
+builder.Services.AddSingleton<UserStore>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -78,6 +85,8 @@ builder.Services.AddCors(options => options.AddPolicy("frontend", policy =>
 }));
 
 var app = builder.Build();
+var userStore = app.Services.GetRequiredService<UserStore>();
+await userStore.InitializeAsync(adminUsername, adminPassword, adminDisplayName);
 app.UseForwardedHeaders();
 app.UseCors("frontend");
 app.UseAuthentication();
@@ -89,7 +98,7 @@ app.Use(async (context, next) =>
     {
         var expectedToken = context.User.FindFirstValue("csrf_token");
         var providedToken = context.Request.Headers["X-RaceMind-CSRF"].FirstOrDefault();
-        if (string.IsNullOrEmpty(expectedToken) || !FixedTimeEquals(providedToken, expectedToken))
+        if (string.IsNullOrEmpty(expectedToken) || !string.Equals(providedToken, expectedToken, StringComparison.Ordinal))
         {
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             await context.Response.WriteAsJsonAsync(new { message = "La solicitud no superó la validación de seguridad." });
@@ -105,29 +114,27 @@ auth.MapGet("/me", (ClaimsPrincipal principal) =>
 {
     var username = principal.Identity?.Name ?? string.Empty;
     var displayName = principal.FindFirstValue("display_name") ?? username;
-    return Results.Ok(new { username, displayName, csrfToken = principal.FindFirstValue("csrf_token") });
+    return Results.Ok(new { username, displayName, role = principal.FindFirstValue(ClaimTypes.Role) ?? "User", csrfToken = principal.FindFirstValue("csrf_token") });
 }).RequireAuthorization();
 
-auth.MapPost("/login", async (LoginRequest request, HttpContext context, LoginAttemptLimiter loginLimiter) =>
+auth.MapPost("/login", async (LoginRequest request, HttpContext context, LoginAttemptLimiter loginLimiter, UserStore users) =>
 {
-    if (!authenticationConfigured)
-        return Results.Problem("La autenticación no está configurada en el servidor.", statusCode: StatusCodes.Status503ServiceUnavailable);
     var remoteAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     if (!loginLimiter.TryRegisterAttempt(remoteAddress))
         return Results.StatusCode(StatusCodes.Status429TooManyRequests);
 
-    if (!FixedTimeEquals(request.Username, configuredUsername!) ||
-        !FixedTimeEquals(request.Password, configuredPassword!))
+    var user = users.Authenticate(request.Username, request.Password);
+    if (user is null)
         return Results.Unauthorized();
 
-    var username = configuredUsername!;
-    var displayName = string.IsNullOrWhiteSpace(configuredDisplayName) ? username : configuredDisplayName;
-    var csrfToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+    var csrfToken = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
     var identity = new ClaimsIdentity(
-        [new Claim(ClaimTypes.Name, username), new Claim("display_name", displayName), new Claim("csrf_token", csrfToken)],
+        [new Claim(ClaimTypes.NameIdentifier, user.Id), new Claim(ClaimTypes.Name, user.Username),
+         new Claim("display_name", user.DisplayName), new Claim(ClaimTypes.Role, user.Role),
+         new Claim("csrf_token", csrfToken)],
         CookieAuthenticationDefaults.AuthenticationScheme);
     await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
-    return Results.Ok(new { username, displayName, csrfToken });
+    return Results.Ok(new { username = user.Username, displayName = user.DisplayName, role = user.Role, csrfToken });
 }).AllowAnonymous();
 
 auth.MapPost("/logout", async (HttpContext context) =>
@@ -135,6 +142,40 @@ auth.MapPost("/logout", async (HttpContext context) =>
     await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     return Results.NoContent();
 }).RequireAuthorization();
+
+auth.MapGet("/users", (UserStore users) => Results.Ok(users.List()))
+    .RequireAuthorization(policy => policy.RequireRole("Admin"));
+
+auth.MapPost("/users", (CreateUserRequest request, UserStore users) =>
+{
+    if (request.Username is null || request.DisplayName is null || request.Password is null)
+        return Results.BadRequest(new { message = "Completa usuario, nombre visible y contraseña." });
+    try
+    {
+        return Results.Created("/api/auth/users", users.Create(request.Username, request.DisplayName, request.Password));
+    }
+    catch (ArgumentException exception)
+    {
+        return Results.BadRequest(new { message = exception.Message });
+    }
+    catch (InvalidOperationException exception)
+    {
+        return Results.Conflict(new { message = exception.Message });
+    }
+}).RequireAuthorization(policy => policy.RequireRole("Admin"));
+
+auth.MapDelete("/users/{id}", (string id, ClaimsPrincipal principal, UserStore users) =>
+{
+    var currentUserId = principal.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+    try
+    {
+        return users.Delete(id, currentUserId) ? Results.NoContent() : Results.NotFound();
+    }
+    catch (InvalidOperationException exception)
+    {
+        return Results.Conflict(new { message = exception.Message });
+    }
+}).RequireAuthorization(policy => policy.RequireRole("Admin"));
 
 var api = app.MapGroup("/api").WithTags("RaceMind");
 api.RequireAuthorization();
@@ -385,13 +426,6 @@ api.MapGet("/motorcycles/motogp/{year:int}/events/{eventCode}/sessions/{sessionC
     .WithName("GetMotoGpSessionDetails");
 
 app.Run();
-
-static bool FixedTimeEquals(string? provided, string configured)
-{
-    var providedHash = SHA256.HashData(Encoding.UTF8.GetBytes(provided ?? string.Empty));
-    var configuredHash = SHA256.HashData(Encoding.UTF8.GetBytes(configured));
-    return CryptographicOperations.FixedTimeEquals(providedHash, configuredHash);
-}
 
 static string? FindTelemetryDataRoot(string startDirectory)
 {

@@ -21,6 +21,16 @@ export interface AuthUser {
   username: string;
   displayName: string;
   csrfToken: string;
+  role: 'Admin' | 'User';
+}
+
+export interface ManagedUser {
+  id: string;
+  username: string;
+  displayName: string;
+  role: 'Admin' | 'User';
+  isActive: boolean;
+  createdAtUtc: string;
 }
 
 let csrfToken = '';
@@ -73,6 +83,21 @@ export const api = {
     const response = await fetch(`${normalizedApiBase}/auth/logout`, { method: 'POST', credentials: 'include', headers: { 'X-RaceMind-CSRF': csrfToken } });
     if (!response.ok) throw new Error(`No se pudo cerrar la sesión (${response.status}).`);
     csrfToken = '';
+  },
+  users: (signal?: AbortSignal) => request<ManagedUser[]>('/auth/users', signal),
+  createUser: (payload: { username: string; displayName: string; password: string }, signal?: AbortSignal) =>
+    post<ManagedUser>('/auth/users', payload, signal),
+  deleteUser: async (id: string) => {
+    const response = await fetch(`${normalizedApiBase}/auth/users/${segment(id)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { 'X-RaceMind-CSRF': csrfToken },
+    });
+    if (response.status === 401) window.dispatchEvent(new Event('racemind:session-expired'));
+    if (!response.ok) {
+      const result = await response.json().catch(() => null) as { message?: string } | null;
+      throw new Error(result?.message ?? `No se pudo eliminar la cuenta (${response.status}).`);
+    }
   },
   assetUrl: (path: string | null) => path ? `${normalizedApiBase}${path.startsWith('/') ? path : `/${path}`}` : null,
   catalog: (signal?: AbortSignal) => request<TelemetryCatalog>('/catalog', signal),
