@@ -6,6 +6,7 @@ secrets.json
 **/appsettings.*.Local.json
 /src/RaceMind.Api/data/users.json
 /src/RaceMind.Api/data/users.json.*.tmp
+/src/RaceMind.Api/data-protection-keys/
 
 # Raw/derived telemetry data: keep datasets outside the repository
 /Telemetría/

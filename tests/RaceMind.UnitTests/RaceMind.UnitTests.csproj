@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\src\RaceMind.Application\RaceMind.Application.csproj" />
     <ProjectReference Include="..\..\src\RaceMind.Infrastructure\RaceMind.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\RaceMind.Api\RaceMind.Api.csproj" />
+    <ProjectReference Include="..\..\src\RaceMind.Api\RaceMind.Api.csproj" />
   </ItemGroup>
 
 </Project>

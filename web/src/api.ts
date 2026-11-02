@@ -14,7 +14,7 @@ import type {
   TelemetryCatalog,
 } from './types';
 
-const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5171/api';
+const apiBase = import.meta.env.VITE_API_BASE_URL ?? '/api';
 const normalizedApiBase = apiBase.replace(/\/$/, '');
 
 export interface AuthUser {

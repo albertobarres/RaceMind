@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +15,7 @@ var adminUsername = builder.Configuration["Authentication:Admin:Username"];
 var adminPassword = builder.Configuration["Authentication:Admin:Password"];
 var adminDisplayName = builder.Configuration["Authentication:Admin:DisplayName"];
 var configuredUserStorePath = builder.Configuration["Authentication:UserStorePath"];
+var configuredTelemetryRoot = builder.Configuration["TelemetryDataRoot"] ?? builder.Configuration["F1DataRoot"];
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -38,6 +40,14 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             return Task.CompletedTask;
         };
     });
+if (builder.Configuration["DataProtection:KeysPath"] is { Length: > 0 } keyPath)
+{
+    var resolvedKeyPath = Path.IsPathRooted(keyPath) ? keyPath : Path.Combine(builder.Environment.ContentRootPath, keyPath);
+    Directory.CreateDirectory(resolvedKeyPath);
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(resolvedKeyPath))
+        .SetApplicationName(builder.Configuration["DataProtection:ApplicationName"] ?? "RaceMind");
+}
 builder.Services.AddAuthorization();
 builder.Services.AddSingleton<LoginAttemptLimiter>();
 builder.Services.Configure<UserStoreOptions>(options =>
@@ -50,26 +60,25 @@ builder.Services.Configure<UserStoreOptions>(options =>
 });
 builder.Services.AddSingleton<UserStore>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto);
+
+builder.Services.AddSingleton<R2TelemetryBootstrapper>();
+builder.Services.AddSingleton<IF1DataProvider>(serviceProvider =>
 {
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    var dataRoot = GetDataRoot(serviceProvider, configuredTelemetryRoot);
+    return new TracingInsightsF1DataProvider(dataRoot);
 });
-
-var dataRoot = builder.Configuration["TelemetryDataRoot"] ?? builder.Configuration["F1DataRoot"];
-if (string.IsNullOrWhiteSpace(dataRoot))
+builder.Services.AddSingleton<ITelemetryCatalogProvider>(serviceProvider =>
 {
-    dataRoot = FindTelemetryDataRoot(Directory.GetCurrentDirectory());
-}
-
-builder.Services.AddSingleton<IF1DataProvider>(_ =>
-    new TracingInsightsF1DataProvider(dataRoot ?? Path.Combine(Directory.GetCurrentDirectory(), "data")));
-builder.Services.AddSingleton<ITelemetryCatalogProvider>(_ =>
-    new TelemetryCatalogProvider(dataRoot ?? Path.Combine(Directory.GetCurrentDirectory(), "data")));
-builder.Services.AddSingleton<IMotoGpDataProvider>(_ =>
-    new MotoGpExcelDataProvider(dataRoot ?? Path.Combine(Directory.GetCurrentDirectory(), "data")));
-builder.Services.AddSingleton<IAssettoCorsaDataProvider>(_ =>
-    new AssettoCorsaCsvDataProvider(dataRoot ?? Path.Combine(Directory.GetCurrentDirectory(), "data")));
-builder.Services.AddSingleton<IKartingDataProvider>(_ =>
-    new AimKartingCsvDataProvider(dataRoot ?? Path.Combine(Directory.GetCurrentDirectory(), "data")));
+    var dataRoot = GetDataRoot(serviceProvider, configuredTelemetryRoot);
+    return new TelemetryCatalogProvider(dataRoot);
+});
+builder.Services.AddSingleton<IMotoGpDataProvider>(serviceProvider =>
+    new MotoGpExcelDataProvider(GetDataRoot(serviceProvider, configuredTelemetryRoot)));
+builder.Services.AddSingleton<IAssettoCorsaDataProvider>(serviceProvider =>
+    new AssettoCorsaCsvDataProvider(GetDataRoot(serviceProvider, configuredTelemetryRoot)));
+builder.Services.AddSingleton<IKartingDataProvider>(serviceProvider =>
+    new AimKartingCsvDataProvider(GetDataRoot(serviceProvider, configuredTelemetryRoot)));
 builder.Services.AddSingleton<LapComparisonService>();
 builder.Services.AddHttpClient("RaceEngineer", client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddTransient<IRaceEngineerExplanationService>(serviceProvider =>
@@ -85,6 +94,11 @@ builder.Services.AddCors(options => options.AddPolicy("frontend", policy =>
 }));
 
 var app = builder.Build();
+var archiveTelemetryRoot = await app.Services.GetRequiredService<R2TelemetryBootstrapper>()
+    .DownloadAndExtractIfConfiguredAsync();
+if (!string.IsNullOrWhiteSpace(archiveTelemetryRoot))
+    app.Configuration["TelemetryDataRoot"] = archiveTelemetryRoot;
+
 var userStore = app.Services.GetRequiredService<UserStore>();
 await userStore.InitializeAsync(adminUsername, adminPassword, adminDisplayName);
 app.UseForwardedHeaders();
@@ -447,6 +461,16 @@ static string? FindTelemetryDataRoot(string startDirectory)
     }
 
     return null;
+}
+
+static string GetDataRoot(IServiceProvider serviceProvider, string? configuredRoot)
+{
+    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+    var environment = serviceProvider.GetRequiredService<IWebHostEnvironment>();
+    var root = configuration["TelemetryDataRoot"] ?? configuredRoot;
+    if (string.IsNullOrWhiteSpace(root)) root = FindTelemetryDataRoot(Directory.GetCurrentDirectory());
+    root ??= Path.Combine(environment.ContentRootPath, "data");
+    return Path.IsPathRooted(root) ? root : Path.Combine(environment.ContentRootPath, root);
 }
 
 public partial class Program;
