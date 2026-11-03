@@ -16,6 +16,7 @@ var adminPassword = builder.Configuration["Authentication:Admin:Password"];
 var adminDisplayName = builder.Configuration["Authentication:Admin:DisplayName"];
 var configuredUserStorePath = builder.Configuration["Authentication:UserStorePath"];
 var configuredTelemetryRoot = builder.Configuration["TelemetryDataRoot"] ?? builder.Configuration["F1DataRoot"];
+var activeTelemetryRoot = configuredTelemetryRoot;
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -65,20 +66,20 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.AddSingleton<R2TelemetryBootstrapper>();
 builder.Services.AddSingleton<IF1DataProvider>(serviceProvider =>
 {
-    var dataRoot = GetDataRoot(serviceProvider, configuredTelemetryRoot);
+    var dataRoot = GetDataRoot(serviceProvider, activeTelemetryRoot);
     return new TracingInsightsF1DataProvider(dataRoot);
 });
 builder.Services.AddSingleton<ITelemetryCatalogProvider>(serviceProvider =>
 {
-    var dataRoot = GetDataRoot(serviceProvider, configuredTelemetryRoot);
+    var dataRoot = GetDataRoot(serviceProvider, activeTelemetryRoot);
     return new TelemetryCatalogProvider(dataRoot);
 });
 builder.Services.AddSingleton<IMotoGpDataProvider>(serviceProvider =>
-    new MotoGpExcelDataProvider(GetDataRoot(serviceProvider, configuredTelemetryRoot)));
+    new MotoGpExcelDataProvider(GetDataRoot(serviceProvider, activeTelemetryRoot)));
 builder.Services.AddSingleton<IAssettoCorsaDataProvider>(serviceProvider =>
-    new AssettoCorsaCsvDataProvider(GetDataRoot(serviceProvider, configuredTelemetryRoot)));
+    new AssettoCorsaCsvDataProvider(GetDataRoot(serviceProvider, activeTelemetryRoot)));
 builder.Services.AddSingleton<IKartingDataProvider>(serviceProvider =>
-    new AimKartingCsvDataProvider(GetDataRoot(serviceProvider, configuredTelemetryRoot)));
+    new AimKartingCsvDataProvider(GetDataRoot(serviceProvider, activeTelemetryRoot)));
 builder.Services.AddSingleton<LapComparisonService>();
 builder.Services.AddHttpClient("RaceEngineer", client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddTransient<IRaceEngineerExplanationService>(serviceProvider =>
@@ -94,10 +95,39 @@ builder.Services.AddCors(options => options.AddPolicy("frontend", policy =>
 }));
 
 var app = builder.Build();
-var archiveTelemetryRoot = await app.Services.GetRequiredService<R2TelemetryBootstrapper>()
-    .DownloadAndExtractIfConfiguredAsync();
-if (!string.IsNullOrWhiteSpace(archiveTelemetryRoot))
-    app.Configuration["TelemetryDataRoot"] = archiveTelemetryRoot;
+var r2DownloadEnabled = app.Configuration.GetValue<bool>("TelemetryArchive:DownloadEnabled");
+var hasR2ArchiveSettings = new[]
+{
+    app.Configuration["TelemetryArchive:Endpoint"],
+    app.Configuration["TelemetryArchive:Bucket"],
+    app.Configuration["TelemetryArchive:ObjectKey"],
+    app.Configuration["TelemetryArchive:AccessKeyId"],
+    app.Configuration["TelemetryArchive:SecretAccessKey"]
+}.Any(value => !string.IsNullOrWhiteSpace(value));
+
+if (hasR2ArchiveSettings && !r2DownloadEnabled)
+    app.Logger.LogWarning("R2 archive settings are present but TelemetryArchive:DownloadEnabled is false. No telemetry archive will be downloaded.");
+
+if (r2DownloadEnabled)
+{
+    var archiveTelemetryRoot = await app.Services.GetRequiredService<R2TelemetryBootstrapper>()
+        .DownloadAndExtractIfConfiguredAsync();
+    if (string.IsNullOrWhiteSpace(archiveTelemetryRoot))
+        throw new InvalidOperationException("TelemetryArchive:DownloadEnabled está activo, pero no se obtuvo ninguna ruta extraída de R2.");
+    activeTelemetryRoot = archiveTelemetryRoot;
+}
+
+var resolvedTelemetryRoot = GetDataRoot(app.Services, activeTelemetryRoot);
+var f1DataRoot = Path.Combine(resolvedTelemetryRoot, "Coches", "F1");
+var demoSessionPath = Path.Combine(f1DataRoot, "2026", "Barcelona Grand Prix", "Race", "session_laptimes.json");
+app.Logger.LogInformation(
+    "Telemetry root resolved to {TelemetryRoot}. F1 root exists: {F1RootExists}. Demo session metadata exists: {DemoSessionExists}.",
+    resolvedTelemetryRoot,
+    Directory.Exists(f1DataRoot),
+    File.Exists(demoSessionPath));
+
+if (r2DownloadEnabled && !File.Exists(demoSessionPath))
+    throw new InvalidDataException($"El archivo R2 se extrajo, pero no se encontró la sesión demo esperada en '{demoSessionPath}'. Comprueba el ZIP y TelemetryDataRoot.");
 
 var userStore = app.Services.GetRequiredService<UserStore>();
 await userStore.InitializeAsync(adminUsername, adminPassword, adminDisplayName);
@@ -263,7 +293,16 @@ api.MapPost("/race-engineer/chat", async Task<IResult> (
 .WithName("ChatWithRaceEngineer");
 
 api.MapGet("/catalog", async (ITelemetryCatalogProvider provider, CancellationToken cancellationToken) =>
-    Results.Ok(await provider.GetCatalogAsync(cancellationToken))).WithName("GetTelemetryCatalog");
+{
+    var catalog = await provider.GetCatalogAsync(cancellationToken);
+    var sessionCount = catalog.Categories
+        .SelectMany(category => category.Series)
+        .SelectMany(series => series.Years)
+        .Sum(year => year.Sessions.Count);
+    app.Logger.LogInformation("Telemetry catalog generated with {CategoryCount} categories and {F1SessionCount} F1 sessions from {TelemetryRoot}.",
+        catalog.Categories.Count, sessionCount, resolvedTelemetryRoot);
+    return Results.Ok(catalog);
+}).WithName("GetTelemetryCatalog");
 
 api.MapGet("/karting/sessions", async (IKartingDataProvider provider, CancellationToken cancellationToken) =>
     Results.Ok(await provider.GetSessionsAsync(cancellationToken))).WithName("GetKartingSessions");
@@ -467,7 +506,7 @@ static string GetDataRoot(IServiceProvider serviceProvider, string? configuredRo
 {
     var configuration = serviceProvider.GetRequiredService<IConfiguration>();
     var environment = serviceProvider.GetRequiredService<IWebHostEnvironment>();
-    var root = configuration["TelemetryDataRoot"] ?? configuredRoot;
+    var root = configuredRoot ?? configuration["TelemetryDataRoot"];
     if (string.IsNullOrWhiteSpace(root)) root = FindTelemetryDataRoot(Directory.GetCurrentDirectory());
     root ??= Path.Combine(environment.ContentRootPath, "data");
     return Path.IsPathRooted(root) ? root : Path.Combine(environment.ContentRootPath, root);
