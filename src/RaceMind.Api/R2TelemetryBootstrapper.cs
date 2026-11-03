@@ -59,7 +59,7 @@ public class R2TelemetryBootstrapper : IDisposable
         var payloadHash = Convert.ToHexString(SHA256.HashData([])).ToLowerInvariant();
         const string signedHeaders = "host;x-amz-content-sha256;x-amz-date";
         var canonicalHeaders = $"host:{requestUri.Host}\nx-amz-content-sha256:{payloadHash}\nx-amz-date:{amzDate}\n";
-        var canonicalRequest = $"GET\n{requestUri.AbsolutePath}\n\n{canonicalHeaders}{signedHeaders}\n{payloadHash}";
+        var canonicalRequest = $"GET\n{requestUri.AbsolutePath}\n\n{canonicalHeaders}\n{signedHeaders}\n{payloadHash}";
         var scope = $"{dateStamp}/{region}/{service}/aws4_request";
         var stringToSign = $"AWS4-HMAC-SHA256\n{amzDate}\n{scope}\n{Sha256Hex(Encoding.UTF8.GetBytes(canonicalRequest))}";
         var signingKey = DeriveSigningKey(secretAccessKey!, dateStamp, region, service);

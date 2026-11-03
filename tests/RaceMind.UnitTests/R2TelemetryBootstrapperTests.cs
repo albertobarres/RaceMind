@@ -150,7 +150,7 @@ public sealed class R2TelemetryBootstrapperTests : IDisposable
             var dateStamp = amzDate[..8];
             var scope = $"{dateStamp}/{region}/{service}/aws4_request";
             var canonicalHeaders = $"host:{request.RequestUri!.Host}\nx-amz-content-sha256:{payloadHash}\nx-amz-date:{amzDate}\n";
-            var canonicalRequest = $"GET\n{request.RequestUri.AbsolutePath}\n\n{canonicalHeaders}{signedHeaders}\n{payloadHash}";
+            var canonicalRequest = $"GET\n{request.RequestUri.AbsolutePath}\n\n{canonicalHeaders}\n{signedHeaders}\n{payloadHash}";
             var hashOfCanonicalRequest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonicalRequest))).ToLowerInvariant();
             var stringToSign = $"AWS4-HMAC-SHA256\n{amzDate}\n{scope}\n{hashOfCanonicalRequest}";
             var dateKey = Hmac(Encoding.UTF8.GetBytes($"AWS4{secret}"), dateStamp);
