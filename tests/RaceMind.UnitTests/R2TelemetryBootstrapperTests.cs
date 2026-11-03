@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using RaceMind.Api;
@@ -57,6 +58,19 @@ public sealed class R2TelemetryBootstrapperTests : IDisposable
     }
 
     [Fact]
+    public async Task DownloadAndExtractIfConfiguredAsync_NormalizesWindowsZipEntrySeparators()
+    {
+        var archivePath = CreateBarcelonaArchiveWithWindowsSeparators();
+        using var handler = new StaticArchiveHandler(await File.ReadAllBytesAsync(archivePath));
+        using var bootstrapper = CreateBootstrapper(new HttpClient(handler));
+
+        var root = await bootstrapper.DownloadAndExtractIfConfiguredAsync();
+
+        Assert.True(File.Exists(Path.Combine(root!, "Coches", "F1", "2026", "Barcelona Grand Prix", "Race", "session_laptimes.json")));
+        Assert.True(File.Exists(Path.Combine(root!, "Coches", "F1", "2026", "Barcelona Grand Prix", "Race", "VER", "10_tel.json")));
+    }
+
+    [Fact]
     public async Task DownloadAndExtractIfConfiguredAsync_RejectsInvalidManifestHashes()
     {
         var archivePath = CreateValidArchive(hashOverride: new string('0', 64));
@@ -109,6 +123,33 @@ public sealed class R2TelemetryBootstrapperTests : IDisposable
             using var stream = archive.CreateEntry("../escaped.txt").Open();
             stream.Write("escape"u8);
         }
+        return archivePath;
+    }
+
+    private string CreateBarcelonaArchiveWithWindowsSeparators()
+    {
+        Directory.CreateDirectory(_directory);
+        var archivePath = Path.Combine(_directory, "barcelona-windows-separators.zip");
+        var sessionPath = @"Coches\F1\2026\Barcelona Grand Prix\Race\session_laptimes.json";
+        var telemetryPath = @"Coches\F1\2026\Barcelona Grand Prix\Race\VER\10_tel.json";
+        var sessionBytes = Encoding.UTF8.GetBytes("session metadata");
+        var telemetryBytes = Encoding.UTF8.GetBytes("lap telemetry");
+        var manifest = new
+        {
+            schemaVersion = 1,
+            files = new[]
+            {
+                new { path = sessionPath, bytes = sessionBytes.Length, sha256 = Convert.ToHexString(SHA256.HashData(sessionBytes)).ToLowerInvariant() },
+                new { path = telemetryPath, bytes = telemetryBytes.Length, sha256 = Convert.ToHexString(SHA256.HashData(telemetryBytes)).ToLowerInvariant() }
+            }
+        };
+
+        using var archive = System.IO.Compression.ZipFile.Open(archivePath, System.IO.Compression.ZipArchiveMode.Create);
+        using (var stream = archive.CreateEntry(sessionPath).Open()) stream.Write(sessionBytes);
+        using (var stream = archive.CreateEntry(telemetryPath).Open()) stream.Write(telemetryBytes);
+        using (var stream = archive.CreateEntry("demo-manifest.json").Open())
+        using (var writer = new StreamWriter(stream))
+            writer.Write(JsonSerializer.Serialize(manifest));
         return archivePath;
     }
 

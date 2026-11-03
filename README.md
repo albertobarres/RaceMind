@@ -64,7 +64,7 @@ dotnet run --project src/RaceMind.Api --urls http://localhost:5171
 
 La API no importa ni copia los 10 GB al repositorio: cataloga nombres de eventos/sesiones desde las carpetas y abre resúmenes y telemetría bajo demanda. La interfaz muestra un mensaje de carga, no selecciona evento ni piloto automáticamente y espera a que el usuario tome esas decisiones. Endpoints y guía de pantallas: [`docs/api-and-frontend.md`](docs/api-and-frontend.md).
 
-En despliegue Render + R2, `TelemetryArchive__DownloadEnabled=true` activa la descarga del ZIP privado `demo/barcelona-f1-2026.zip`. Los logs de inicio muestran la raíz efectiva y si existe `Coches/F1/2026/Barcelona Grand Prix/Race/session_laptimes.json`; el log de `/api/catalog` informa cuántas sesiones F1 encontró. Si la descarga está activada y falta la sesión demo, la API falla durante el arranque en vez de ofrecer un catálogo vacío. Consulta el historial de despliegue/logs de Render para verificar esos mensajes.
+En despliegue Render + R2, `TelemetryArchive__DownloadEnabled=true` activa la descarga del ZIP privado `demo/barcelona-f1-2026.zip`. El extractor normaliza los separadores del ZIP para que funcione con archivos creados en Windows y Linux. Los logs de inicio muestran la raíz efectiva y si existe `Coches/F1/2026/Barcelona Grand Prix/Race/session_laptimes.json`; el log de `/api/catalog` informa cuántas sesiones F1 encontró. Si la descarga está activada y falta la sesión demo, la API falla durante el arranque en vez de ofrecer un catálogo vacío. Consulta el historial de despliegue/logs de Render para verificar esos mensajes.
 
 ### Explicaciones generativas (opcional)
 

@@ -123,7 +123,10 @@ public class R2TelemetryBootstrapper : IDisposable
         var rootWithSeparator = Path.GetFullPath(destinationRoot) + Path.DirectorySeparatorChar;
         foreach (var entry in archive.Entries)
         {
-            var relativePath = entry.FullName.Replace('/', Path.DirectorySeparatorChar);
+            // ZIPs created on Windows can carry backslashes as separators. Normalize before
+            // path validation/extraction so Linux does not create filenames containing '\'.
+            var normalizedArchivePath = entry.FullName.Replace('\\', '/');
+            var relativePath = normalizedArchivePath.Replace('/', Path.DirectorySeparatorChar);
             if (Path.IsPathRooted(relativePath) || relativePath.Split(Path.DirectorySeparatorChar).Any(part => part is ".." or "."))
                 throw new InvalidDataException("El ZIP contiene una ruta no segura.");
 
@@ -131,7 +134,7 @@ public class R2TelemetryBootstrapper : IDisposable
             if (!fullPath.StartsWith(rootWithSeparator, StringComparison.Ordinal))
                 throw new InvalidDataException("El ZIP contiene una ruta fuera del directorio destino.");
 
-            if (entry.FullName.EndsWith('/'))
+            if (normalizedArchivePath.EndsWith('/'))
             {
                 Directory.CreateDirectory(fullPath);
                 continue;
@@ -143,7 +146,7 @@ public class R2TelemetryBootstrapper : IDisposable
             using (var input = entry.Open())
             using (var output = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
                 input.CopyTo(output);
-            files.Add(entry.FullName.Replace('\\', '/'), fullPath);
+            files.Add(normalizedArchivePath, fullPath);
         }
 
         if (!files.TryGetValue("demo-manifest.json", out var manifestPath))
