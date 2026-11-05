@@ -358,7 +358,6 @@ function Sidebar(props: SidebarProps) {
       </div>
 
       <div className="sidebar-bottom">
-        <div className="source-status"><span className="status-dot" /><span><strong>DATA SOURCE</strong><small>TracingInsights · local archive</small></span></div>
         <div className="profile-chip" title={user.displayName}><div className="avatar">{getInitials(user.displayName)}</div><span><strong>{user.displayName}</strong><small>{user.username}</small></span></div>
       </div>
     </aside>
