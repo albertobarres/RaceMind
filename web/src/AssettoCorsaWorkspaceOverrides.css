@@ -22,3 +22,36 @@
 .assetto-chart-legend-toggle:not(.is-active) {
   opacity: .4;
 }
+
+.assetto-chart-legend,
+.karting-chart-legend {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: clamp(4px, .6vw, 9px);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.assetto-chart-legend > span,
+.assetto-chart-legend-toggle,
+.karting-chart-legend > span,
+.karting-chart-legend-toggle {
+  flex: 0 0 auto;
+  gap: 4px;
+  font-size: clamp(9px, .75vw, 11px);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .assetto-chart-card > header,
+  .karting-chart > header {
+    flex-wrap: wrap;
+  }
+
+  .assetto-chart-legend,
+  .karting-chart-legend {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
