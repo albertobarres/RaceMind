@@ -355,13 +355,13 @@ export function ReportPanel({
         {explanation && <div className="race-engineer-ai-result" aria-live="polite"><strong>Explicación generativa</strong><FormattedAnswer text={explanation} /><small>{explanationModel} · basada en los hallazgos mostrados; verifica siempre los datos de origen.</small></div>}
       </div>
 
-      <section className="race-engineer-chat" aria-label="Chat con Race Engineer">
-        <header><MessageCircle size={15} /><strong>Pregunta al Race Engineer</strong><span>Respuestas basadas en estos hallazgos</span></header>
+      <section className="race-engineer-chat" aria-label="Chat con el ingeniero de carrera">
+        <header><MessageCircle size={15} /><strong>Pregunta al ingeniero de carrera</strong><span>Respuestas basadas en estos hallazgos</span></header>
         {chatMessages.length > 0 && <div className="race-engineer-chat-messages" aria-live="polite">
           {chatMessages.map((message, index) => <article className={`race-engineer-chat-message ${message.role}`} key={`${index}-${message.role}`}>
-            <small>{message.role === 'user' ? 'TÚ' : 'RACE ENGINEER'}</small><FormattedAnswer text={message.content} />
+            <small>{message.role === 'user' ? 'TÚ' : 'INGENIERO DE CARRERA'}</small><FormattedAnswer text={message.content} />
           </article>)}
-          {isChatSending && <div className="race-engineer-chat-pending">Race Engineer está respondiendo…</div>}
+          {isChatSending && <div className="race-engineer-chat-pending">El ingeniero de carrera está respondiendo…</div>}
           <div ref={chatMessagesEnd} />
         </div>}
         {chatError && <p className="race-engineer-ai-error" role="alert">{chatError}</p>}
@@ -372,7 +372,7 @@ export function ReportPanel({
             placeholder="Ej.: ¿En qué sectores debería centrarse el piloto?"
             maxLength={1000}
             disabled={findings.length === 0 || isChatSending}
-            aria-label="Pregunta para Race Engineer"
+            aria-label="Pregunta para el ingeniero de carrera"
           />
           <button type="submit" disabled={!chatQuestion.trim() || findings.length === 0 || isChatSending} aria-label="Enviar pregunta"><Send size={15} /></button>
         </form>

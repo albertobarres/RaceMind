@@ -104,7 +104,7 @@ function LoginScreen({ onLogin }: { readonly onLogin: (user: AuthUser) => void }
   return (
     <main className="auth-screen">
       <section className="auth-card">
-        <div className="auth-brand"><span className="brand-mark"><Activity size={21} strokeWidth={2.5} /></span><span>RACE<span className="brand-light">MIND</span><small>TELEMETRY INTELLIGENCE</small></span></div>
+         <div className="auth-brand"><span className="brand-mark"><Activity size={21} strokeWidth={2.5} /></span><span>RACE<span className="brand-light">MIND</span><small>INTELIGENCIA DE TELEMETRÍA</small></span></div>
         <div className="auth-kicker"><LockKeyhole size={13} /> ACCESO PRIVADO</div>
         <h1>Bienvenido de nuevo</h1>
         <p>Inicia sesión para consultar el análisis de telemetría.</p>
@@ -181,7 +181,7 @@ function AdminApp({ user, onLogout, onBack }: { readonly user: AuthUser; readonl
   return (
     <main className="admin-screen">
       <header className="admin-topbar">
-        <div className="auth-brand"><span className="brand-mark"><Activity size={21} strokeWidth={2.5} /></span><span>RACE<span className="brand-light">MIND</span><small>TELEMETRY INTELLIGENCE</small></span></div>
+        <div className="auth-brand"><span className="brand-mark"><Activity size={21} strokeWidth={2.5} /></span><span>RACE<span className="brand-light">MIND</span><small>INTELIGENCIA DE TELEMETRÍA</small></span></div>
         <div className="admin-session"><span className="user-initials">{getInitials(user.displayName)}</span><strong>{user.displayName}</strong><button className="admin-logout" type="button" onClick={onBack}><ChevronRight size={15} className="admin-back-icon" />Volver al análisis</button><button className="admin-logout" type="button" onClick={handleLogout}><LogOut size={15} />Cerrar sesión</button></div>
       </header>
       <div className="admin-content">
@@ -335,14 +335,14 @@ function Sidebar(props: SidebarProps) {
     <aside className="sidebar">
       <button className="brand brand-button" type="button" aria-label="Volver a RaceMind inicio y deseleccionar sesión" onClick={onHome}>
         <span className="brand-mark"><Activity size={20} strokeWidth={2.5} /></span>
-        <span>RACE<span className="brand-light">MIND</span><small>TELEMETRY INTELLIGENCE</small></span>
+        <span>RACE<span className="brand-light">MIND</span><small>INTELIGENCIA DE TELEMETRÍA</small></span>
       </button>
 
-      <div className="side-section-label">WORKSPACE</div>
-      <button className="nav-item active"><Gauge size={17} />Performance analysis</button>
+      <div className="side-section-label">ESPACIO DE TRABAJO</div>
+      <button className="nav-item active"><Gauge size={17} />Análisis de rendimiento</button>
 
       <div className="side-separator" />
-      <div className="side-section-label session-label">TELEMETRY SOURCES</div>
+      <div className="side-section-label session-label">FUENTES DE TELEMETRÍA</div>
       <label className="search-box">
         <Search size={15} />
         <input value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Buscar evento..." />
@@ -499,11 +499,11 @@ function F1GrandPrix({ year, grandPrix, sessions, selectedSessionId, selectedYea
       {sessions.map((session) => <button
         key={session.id}
         className={`catalog-session ${selectedSessionId === session.id && selectedYear === year ? 'selected' : ''}`}
-        title={`${formatGrandPrix(session.grandPrix)} · ${session.sessionName}`}
+         title={`${formatGrandPrix(session.grandPrix)} · ${formatSessionName(session.sessionName)}`}
         onClick={() => onChooseSession(year, session.id)}
       >
         <span className="catalog-session-icon"><Flag size={13} /></span>
-        <span className="catalog-session-text"><strong>{session.sessionName}</strong></span>
+         <span className="catalog-session-text"><strong>{formatSessionName(session.sessionName)}</strong></span>
       </button>)}
     </div>}
   </div>;
@@ -575,9 +575,9 @@ function MotoGpSessionButton({ year, eventCode, session, selected, onChoose }: {
   readonly selected: boolean;
   readonly onChoose: (year: number, eventCode: string, sessionCode: string) => void;
 }) {
-  return <button className={`catalog-session ${selected ? 'selected' : ''}`} title={`${session.sessionName} · ${session.date ?? 'MotoGP'} · ${session.resultCount} pilotos`} onClick={() => onChoose(year, eventCode, session.sessionCode)}>
+  return <button className={`catalog-session ${selected ? 'selected' : ''}`} title={`${formatSessionName(session.sessionName)} · ${session.date ?? 'MotoGP'} · ${session.resultCount} pilotos`} onClick={() => onChoose(year, eventCode, session.sessionCode)}>
     <span className="catalog-session-icon"><Flag size={13} /></span>
-    <span className="catalog-session-text"><strong>{session.sessionName}</strong><small>{session.date ?? 'MotoGP'} · {session.resultCount} pilotos</small></span>
+    <span className="catalog-session-text"><strong>{formatSessionName(session.sessionName)}</strong><small>{session.date ?? 'MotoGP'} · {session.resultCount} pilotos</small></span>
   </button>;
 }
 
@@ -664,8 +664,8 @@ function getMotoGpEventsFromCatalog(series: TelemetrySeries) {
 function Header({ grandPrix, user, onLogout, onManageUsers }: { readonly grandPrix: string | undefined; readonly user: AuthUser; readonly onLogout: () => void; readonly onManageUsers?: () => void }) {
   return (
     <header className="topbar">
-      <div className="breadcrumbs" title={grandPrix ?? 'Selecciona un evento'}><span>Analysis</span><span className="crumb-slash">/</span><strong>{grandPrix ?? 'Selecciona un evento'}</strong></div>
-      <div className="topbar-right"><span className="live-pill"><i /> DATA READY</span>{onManageUsers && <button className="manage-users-button" type="button" onClick={onManageUsers}><UserRoundPlus size={14} /> Cuentas</button>}<span className="topbar-divider" /><span className="user-initials" title={user.displayName}>{getInitials(user.displayName)}</span><button className="logout-button" type="button" title="Cerrar sesión" aria-label="Cerrar sesión" onClick={onLogout}><LogOut size={15} /></button></div>
+      <div className="breadcrumbs" title={grandPrix ? formatGrandPrix(grandPrix) : 'Selecciona un evento'}><span>Análisis</span><span className="crumb-slash">/</span><strong>{grandPrix ? formatGrandPrix(grandPrix) : 'Selecciona un evento'}</strong></div>
+      <div className="topbar-right"><span className="live-pill"><i /> DATOS LISTOS</span>{onManageUsers && <button className="manage-users-button" type="button" onClick={onManageUsers}><UserRoundPlus size={14} /> Cuentas</button>}<span className="topbar-divider" /><span className="user-initials" title={user.displayName}>{getInitials(user.displayName)}</span><button className="logout-button" type="button" title="Cerrar sesión" aria-label="Cerrar sesión" onClick={onLogout}><LogOut size={15} /></button></div>
     </header>
   );
 }
@@ -769,11 +769,11 @@ function PageHeading({ session }: { readonly session: SessionDetails }) {
   return (
     <section className="page-heading">
       <div>
-        <div className="eyebrow"><span>F1</span><i /> {session.grandPrix} <i /> {session.sessionName}</div>
-        <h1>Performance <span>analysis</span></h1>
+        <div className="eyebrow"><span>F1</span><i /> {session.grandPrix} <i /> {formatSessionName(session.sessionName)}</div>
+        <h1>Análisis <span>de rendimiento</span></h1>
         <p>Compara vueltas y descubre dónde cambia el rendimiento.</p>
       </div>
-      <div className="heading-actions"><span className="data-badge"><span className="status-dot" /> SESSION DATA</span></div>
+      <div className="heading-actions"><span className="data-badge"><span className="status-dot" /> DATOS DE LA SESIÓN</span></div>
     </section>
   );
 }
@@ -791,11 +791,11 @@ function SelectionPrompt({ title, message }: { readonly title: string; readonly 
 function SessionStrip({ session }: { readonly session: SessionDetails }) {
   return (
     <section className="session-strip">
-      <div className="session-strip-event" title={`${session.grandPrix} · ${session.sessionName}`}><span className="event-flag"><Flag size={18} /></span><span><small>EVENT / SESSION</small><strong>{session.grandPrix} <b>·</b> {session.sessionName}</strong></span></div>
+      <div className="session-strip-event" title={`${formatGrandPrix(session.grandPrix)} · ${formatSessionName(session.sessionName)}`}><span className="event-flag"><Flag size={18} /></span><span><small>EVENTO / SESIÓN</small><strong>{formatGrandPrix(session.grandPrix)} <b>·</b> {formatSessionName(session.sessionName)}</strong></span></div>
       <div className="strip-divider" />
-      <div className="session-strip-stat"><small>DRIVERS</small><strong>{session.drivers.length}</strong></div>
-      <div className="session-strip-stat"><small>CIRCUIT CORNERS</small><strong>{session.cornerCount || '—'}</strong></div>
-      <div className="strip-weather"><Wind size={16} /><span><small>TRACK TEMP</small><strong>{session.weather?.trackTemperatureCelsius?.toFixed(1) ?? '—'}°C</strong></span><span className="weather-air">AIR {session.weather?.airTemperatureCelsius?.toFixed(1) ?? '—'}°C</span></div>
+      <div className="session-strip-stat"><small>PILOTOS</small><strong>{session.drivers.length}</strong></div>
+      <div className="session-strip-stat"><small>CURVAS</small><strong>{session.cornerCount || '—'}</strong></div>
+      <div className="strip-weather"><Wind size={16} /><span><small>TEMP. DE PISTA</small><strong>{session.weather?.trackTemperatureCelsius?.toFixed(1) ?? '—'}°C</strong></span><span className="weather-air">AIRE {session.weather?.airTemperatureCelsius?.toFixed(1) ?? '—'}°C</span></div>
     </section>
   );
 }
@@ -812,7 +812,7 @@ function DriverSelection({
   if (drivers.length === 0) {
     return (
       <section className="driver-section">
-        <div className="section-title"><div><span className="section-index">01</span><h2>Driver selection</h2></div></div>
+        <div className="section-title"><div><span className="section-index">01</span><h2>Selección de piloto</h2></div></div>
         <div className="inline-loading"><span className="spinner" />Cargando pilotos del evento…</div>
       </section>
     );
@@ -820,7 +820,7 @@ function DriverSelection({
 
   return (
     <section className="driver-section">
-      <div className="section-title"><div><span className="section-index">01</span><h2>Driver selection</h2></div><span className="muted-label">SELECT A DRIVER TO ANALYSE</span></div>
+      <div className="section-title"><div><span className="section-index">01</span><h2>Selección de piloto</h2></div><span className="muted-label">ELIGE UN PILOTO PARA ANALIZAR</span></div>
       <div className="driver-cards">
         {drivers.map((item) => <DriverCard key={item.code} driver={item} selected={selectedDriver === item.code} onClick={() => onChooseDriver(item.code)} />)}
       </div>
@@ -872,7 +872,7 @@ function LapComparisonSection(props: {
         referenceLap={comparison.referenceLap}
         comparedLap={comparison.comparedLap}
       />}
-      <div className="footer-note"><Timer size={14} /><span>ANALYSIS GENERATED FROM SOURCE TELEMETRY</span><i /><span>TRACEABLE · REPRODUCIBLE</span><span className="footer-right">RaceMind <b>v0.1</b></span></div>
+      <div className="footer-note"><Timer size={14} /><span>ANÁLISIS GENERADO A PARTIR DE LA TELEMETRÍA DE ORIGEN</span><i /><span>TRAZABLE · REPRODUCIBLE</span><span className="footer-right">RaceMind <b>v0.1</b></span></div>
     </section>
   );
 }
@@ -928,8 +928,8 @@ function formatPageMetric(value: number | null | undefined, suffix: string) {
 function ComparisonHeading({ selectedDriver, driver }: { readonly selectedDriver: DriverSummary | null; readonly driver: string }) {
   return (
     <div className="section-title">
-      <div><span className="section-index">02</span><h2>Lap comparison</h2><span className="section-subtitle">/{selectedDriver?.code ?? driver}</span></div>
-      <span className="muted-label"><span className="status-dot" /> TELEMETRY SYNCED</span>
+        <div><span className="section-index">02</span><h2>Comparación de vueltas</h2><span className="section-subtitle">/{selectedDriver?.code ?? driver}</span></div>
+      <span className="muted-label"><span className="status-dot" /> TELEMETRÍA SINCRONIZADA</span>
     </div>
   );
 }
@@ -946,9 +946,9 @@ function LapSelectors(props: {
   const { availableLaps, reference, referenceLap, comparedLap, comparisonLoading, onReferenceChange, onComparedChange } = props;
   return (
     <div className="compare-controls">
-      <LapSelect label="REFERENCE LAP" id="reference-lap" value={referenceLap} laps={availableLaps} excludeLap={comparedLap} onChange={onReferenceChange} />
-      <div className="compare-versus">VS</div>
-      <LapSelect label="COMPARED LAP" id="compared-lap" value={comparedLap} laps={availableLaps} excludeLap={referenceLap} onChange={onComparedChange} />
+      <LapSelect label="VUELTA DE REFERENCIA" id="reference-lap" value={referenceLap} laps={availableLaps} excludeLap={comparedLap} onChange={onReferenceChange} />
+      <div className="compare-versus">VS.</div>
+      <LapSelect label="VUELTA COMPARADA" id="compared-lap" value={comparedLap} laps={availableLaps} excludeLap={referenceLap} onChange={onComparedChange} />
       <div className="compare-control-divider" />
       <TyreInfo lap={reference} />
       <div className="compare-control-divider" />
@@ -981,24 +981,24 @@ function LapSelect(props: {
 }
 
 function LapOption({ lap }: { readonly lap: LapSummary }) {
-  const personalBestLabel = lap.isPersonalBest ? ' · PB' : '';
-  return <option value={lap.number}>Lap {lap.number} · {formatLapTime(lap.lapTimeSeconds)}{personalBestLabel}</option>;
+  const personalBestLabel = lap.isPersonalBest ? ' · MEJOR PERSONAL' : '';
+  return <option value={lap.number}>Vuelta {lap.number} · {formatLapTime(lap.lapTimeSeconds)}{personalBestLabel}</option>;
 }
 
 function TyreInfo({ lap }: { readonly lap: LapSummary | null }) {
   return (
     <div className="tyre-info">
       <span className={compoundClass(lap?.tyreCompound ?? null)}>{lap?.tyreCompound?.slice(0, 1) ?? '—'}</span>
-      <span><small>REFERENCE TYRE</small><strong>{lap?.tyreCompound ?? '—'} <em>· STINT {lap?.stint ?? '—'}</em></strong></span>
+      <span><small>NEUMÁTICO DE REFERENCIA</small><strong>{lap?.tyreCompound ?? '—'} <em>· TANDA {lap?.stint ?? '—'}</em></strong></span>
     </div>
   );
 }
 
 function ComparisonReadiness({ loading }: { readonly loading: boolean }) {
   if (loading) {
-    return <span className="compare-status"><span className="spinner small" /> CALCULATING</span>;
+    return <span className="compare-status"><span className="spinner small" /> CALCULANDO</span>;
   }
-  return <span className="compare-status"><span className="status-dot" /> READY</span>;
+  return <span className="compare-status"><span className="status-dot" /> LISTO</span>;
 }
 
 function LapSummary(props: {
@@ -1010,14 +1010,14 @@ function LapSummary(props: {
   const { comparison, reference, compared, referenceLap } = props;
   return (
     <div className="lap-summary-grid">
-      <LapSummaryCard label="REFERENCE LAP" lap={reference} color="reference" />
+      <LapSummaryCard label="VUELTA DE REFERENCIA" lap={reference} color="reference" />
           <div className={`delta-card ${getDeltaCardClass(comparison)}`}>
-        <small>TIME DELTA</small>
+        <small>DIFERENCIA DE TIEMPO</small>
         <strong>{formatComparisonDelta(comparison)}</strong>
         <DeltaStatus comparison={comparison} />
       </div>
-      <LapSummaryCard label="COMPARED LAP" lap={compared} color="compared" />
-      <span className="sr-only">Reference lap number {referenceLap}</span>
+      <LapSummaryCard label="VUELTA COMPARADA" lap={compared} color="compared" />
+      <span className="sr-only">Número de vuelta de referencia {referenceLap}</span>
     </div>
   );
 }
@@ -1045,7 +1045,7 @@ function TelemetryVisualizations(props: {
   const { session, corners, comparison, referenceLap, comparedLap } = props;
   return (
     <>
-      <div className="visualization-heading"><span><MapPin size={15} /> TRACK & TELEMETRY</span><span>ALIGNED BY DISTANCE <i /> {comparison?.points.length ?? 0} POINTS</span></div>
+      <div className="visualization-heading"><span><MapPin size={15} /> CIRCUITO Y TELEMETRÍA</span><span>ALINEADAS POR DISTANCIA <i /> {comparison?.points.length ?? 0} PUNTOS</span></div>
       <div className="analysis-grid">
         <TrackPanel corners={corners} comparison={comparison} />
         <WeatherPanel session={session} />
@@ -1058,9 +1058,9 @@ function TelemetryVisualizations(props: {
 function TrackPanel({ corners, comparison }: { readonly corners: CornerSummary[]; readonly comparison: LapComparison | null }) {
   return (
     <section className="track-card">
-      <div className="card-title"><div><h3>Circuit overview</h3><span>Corner markers · session geometry</span></div><span className="corner-count">{corners.length} TURNS</span></div>
-      {comparison ? <TrackMap corners={corners} /> : <div className="chart-placeholder"><span className="spinner" />Loading telemetry...</div>}
-      <div className="track-legend"><span><i className="track-dot" /> CORNER</span><span><i className="track-line" /> TRACK LAYOUT</span><span className="track-legend-note">Schematic · not to scale</span></div>
+      <div className="card-title"><div><h3>Vista del circuito</h3><span>Marcadores de curvas · geometría de la sesión</span></div><span className="corner-count">{corners.length} CURVAS</span></div>
+      {comparison ? <TrackMap corners={corners} /> : <div className="chart-placeholder"><span className="spinner" />Cargando telemetría…</div>}
+      <div className="track-legend"><span><i className="track-dot" /> CURVA</span><span><i className="track-line" /> TRAZADO</span><span className="track-legend-note">Esquema · no está a escala</span></div>
     </section>
   );
 }
@@ -1069,16 +1069,16 @@ function WeatherPanel({ session }: { readonly session: SessionDetails }) {
   const weather = session.weather;
   return (
     <section className="insight-card">
-      <div className="card-title"><div><h3>Session conditions</h3><span>Latest available weather sample</span></div><span className="weather-icon"><Wind size={16} /></span></div>
+      <div className="card-title"><div><h3>Condiciones de la sesión</h3><span>Último registro meteorológico disponible</span></div><span className="weather-icon"><Wind size={16} /></span></div>
       <div className="conditions-grid">
-        <Condition label="AIR TEMP" value={weather?.airTemperatureCelsius} unit="°C" />
-        <Condition label="TRACK TEMP" value={weather?.trackTemperatureCelsius} unit="°C" />
-        <Condition label="HUMIDITY" value={weather?.humidityPercent} unit="%" />
-        <Condition label="WIND" value={weather?.windSpeedMetersPerSecond} unit="m/s" />
-        <Condition label="PRESSURE" value={weather?.pressureHpa} unit="hPa" />
-        <Condition label="RAINFALL" display={formatRainfall(weather?.rainfall)} />
+        <Condition label="TEMP. DEL AIRE" value={weather?.airTemperatureCelsius} unit="°C" />
+        <Condition label="TEMP. DE PISTA" value={weather?.trackTemperatureCelsius} unit="°C" />
+        <Condition label="HUMEDAD" value={weather?.humidityPercent} unit="%" />
+        <Condition label="VIENTO" value={weather?.windSpeedMetersPerSecond} unit="m/s" />
+        <Condition label="PRESIÓN" value={weather?.pressureHpa} unit="hPa" />
+        <Condition label="LLUVIA" display={formatRainfall(weather?.rainfall)} />
       </div>
-      <div className="conditions-foot"><span className="status-dot" /> WEATHER STREAM <span>SESSION ARCHIVE</span></div>
+      <div className="conditions-foot"><span className="status-dot" /> DATOS METEOROLÓGICOS <span>ARCHIVO DE SESIÓN</span></div>
     </section>
   );
 }
@@ -1097,28 +1097,28 @@ function ChartsPanel(props: { readonly comparison: LapComparison; readonly refer
 
 function SpeedChart({ comparison, referenceLap, comparedLap }: { readonly comparison: LapComparison; readonly referenceLap: number; readonly comparedLap: number }) {
   return (
-    <SeriesChart title="Speed trace" unit="km/h · source unit to be confirmed" comparison={comparison} series={[
-      { key: 'referenceSpeedKph', label: `LAP ${referenceLap}`, color: '#73dfb2' },
-      { key: 'comparedSpeedKph', label: `LAP ${comparedLap}`, color: '#ffaf63' },
+      <SeriesChart title="Velocidad" unit="km/h · unidad de origen pendiente de confirmar" comparison={comparison} series={[
+      { key: 'referenceSpeedKph', label: `VUELTA ${referenceLap}`, color: '#73dfb2' },
+      { key: 'comparedSpeedKph', label: `VUELTA ${comparedLap}`, color: '#ffaf63' },
     ]} />
   );
 }
 
 function ThrottleBrakeChart({ comparison, referenceLap, comparedLap }: { readonly comparison: LapComparison; readonly referenceLap: number; readonly comparedLap: number }) {
   return (
-    <SeriesChart title="Throttle & brake" unit="% · brake converted from 0–1 source scale" comparison={comparison} series={[
-      { key: 'referenceThrottlePercent', label: `THROTTLE L${referenceLap}`, color: '#73dfb2' },
-      { key: 'comparedThrottlePercent', label: `THROTTLE L${comparedLap}`, color: '#ffaf63' },
-      { key: 'referenceBrakePercent', label: `BRAKE L${referenceLap}`, color: '#4b9ff5' },
-      { key: 'comparedBrakePercent', label: `BRAKE L${comparedLap}`, color: '#bb8bf3' },
+    <SeriesChart title="Acelerador y freno" unit="% · freno convertido desde la escala de origen 0–1" comparison={comparison} series={[
+      { key: 'referenceThrottlePercent', label: `ACELERADOR V${referenceLap}`, color: '#73dfb2' },
+      { key: 'comparedThrottlePercent', label: `ACELERADOR V${comparedLap}`, color: '#ffaf63' },
+      { key: 'referenceBrakePercent', label: `FRENO V${referenceLap}`, color: '#4b9ff5' },
+      { key: 'comparedBrakePercent', label: `FRENO V${comparedLap}`, color: '#bb8bf3' },
     ]} range={[0, 100]} toggleable />
   );
 }
 
 function TimeDeltaChart({ comparison }: { readonly comparison: LapComparison }) {
   return (
-    <SeriesChart title="Time delta" unit="seconds · compared minus reference" comparison={comparison} series={[
-      { key: 'deltaElapsedSeconds', label: 'TIME DELTA', color: '#ffaf63' },
+    <SeriesChart title="Diferencia de tiempo" unit="segundos · vuelta comparada menos referencia" comparison={comparison} series={[
+      { key: 'deltaElapsedSeconds', label: 'DIFERENCIA DE TIEMPO', color: '#ffaf63' },
     ]} format={(value) => value.toFixed(2)} />
   );
 }
@@ -1126,9 +1126,9 @@ function TimeDeltaChart({ comparison }: { readonly comparison: LapComparison }) 
 function TelemetryNotes() {
   return (
     <section className="chart-card telemetry-notes">
-      <div className="chart-heading"><div><h3>Reading the comparison</h3><span>HOW TO INTERPRET</span></div><Activity size={17} /></div>
-      <p>The delta is calculated as <strong>compared lap minus reference lap</strong>. A positive time delta means the compared lap is behind; a negative delta means it is ahead at that distance.</p>
-      <div className="note-callout"><Radio size={15} /><span>Signals are interpolated by relative distance. Source sampling intervals are irregular.</span></div>
+      <div className="chart-heading"><div><h3>Cómo leer la comparación</h3><span>GUÍA DE INTERPRETACIÓN</span></div><Activity size={17} /></div>
+      <p>La diferencia se calcula como <strong>vuelta comparada menos vuelta de referencia</strong>. Un valor positivo indica que la vuelta comparada va por detrás; uno negativo, que va por delante en esa distancia.</p>
+      <div className="note-callout"><Radio size={15} /><span>Las señales se interpolan por distancia relativa. Los intervalos entre muestras de origen son irregulares.</span></div>
     </section>
   );
 }
@@ -1142,13 +1142,13 @@ interface DriverCardProps {
 function DriverCard({ driver, selected, onClick }: DriverCardProps) {
   const color = getTeamColor(driver);
   const initials = getDriverInitials(driver.fullName ?? driver.code);
-  const bestLap = driver.bestLapSeconds == null ? 'TIME PENDING' : formatLapTime(driver.bestLapSeconds);
+  const bestLap = driver.bestLapSeconds == null ? 'TIEMPO PENDIENTE' : formatLapTime(driver.bestLapSeconds);
   return (
-    <button className={`driver-card ${selected ? 'driver-selected' : ''}`} title={`${driver.code} · ${driver.fullName ?? driver.team ?? 'Driver'} · Best lap ${bestLap}`} style={{ '--team-color': color } as CSSProperties & { '--team-color': string }} onClick={onClick}>
+    <button className={`driver-card ${selected ? 'driver-selected' : ''}`} title={`${driver.code} · ${driver.fullName ?? driver.team ?? 'Piloto'} · Mejor vuelta ${bestLap}`} style={{ '--team-color': color } as CSSProperties & { '--team-color': string }} onClick={onClick}>
       <span className="driver-color" />
       <span className="driver-avatar">{initials}</span>
-      <span className="driver-info" title={driver.fullName ?? driver.team ?? 'Driver'}><strong>{driver.code}</strong><small>{driver.fullName ?? driver.team ?? 'Driver'}</small></span>
-      <span className="driver-best" title={`Best lap: ${bestLap}`}><small>BEST</small><strong>{bestLap}</strong></span>
+      <span className="driver-info" title={driver.fullName ?? driver.team ?? 'Piloto'}><strong>{driver.code}</strong><small>{driver.fullName ?? driver.team ?? 'Piloto'}</small></span>
+      <span className="driver-best" title={`Mejor vuelta: ${bestLap}`}><small>MEJOR</small><strong>{bestLap}</strong></span>
     </button>
   );
 }
@@ -1180,9 +1180,9 @@ function LapSummaryCard({ label, lap, color }: LapSummaryCardProps) {
       <div className="lap-summary-label"><i />{label}</div>
       <div className="lap-summary-time">{formatLapTime(lap?.lapTimeSeconds)}</div>
       <div className="lap-summary-meta">
-        <span> LAP {lap?.number ?? '—'}</span>
-        <span className={compoundClass(lap?.tyreCompound ?? null)}>{lap?.tyreCompound ?? 'NO TYRE DATA'}</span>
-        <span>STINT {lap?.stint ?? '—'}</span>
+        <span> VUELTA {lap?.number ?? '—'}</span>
+        <span className={compoundClass(lap?.tyreCompound ?? null)}>{lap?.tyreCompound ?? 'SIN DATOS DE NEUMÁTICO'}</span>
+        <span>TANDA {lap?.stint ?? '—'}</span>
       </div>
     </div>
   );
@@ -1206,8 +1206,8 @@ function formatCondition(value: number | null | undefined, unit: string) {
 
 function formatRainfall(rainfall: boolean | null | undefined) {
   if (rainfall == null) return '—';
-  if (rainfall) return 'YES';
-  return 'NO';
+  if (rainfall) return 'Sí';
+  return 'No';
 }
 
 interface SectorCardProps {
@@ -1249,11 +1249,33 @@ function getDeltaCardClass(comparison: LapComparison | null) {
 
 function DeltaStatus({ comparison }: { readonly comparison: LapComparison | null }) {
   const delta = comparison?.deltaLapTimeSeconds;
-  if (delta == null) return <span>AWAITING DATA</span>;
-  if (delta < 0) return <span><ArrowDownRight size={13} /> FASTER</span>;
-  return <span><ArrowUpRight size={13} /> SLOWER</span>;
+  if (delta == null) return <span>ESPERANDO DATOS</span>;
+  if (delta < 0) return <span><ArrowDownRight size={13} /> MÁS RÁPIDA</span>;
+  return <span><ArrowUpRight size={13} /> MÁS LENTA</span>;
+}
+
+function formatSessionName(sessionName: string) {
+  const translations: Record<string, string> = {
+    Race: 'Carrera',
+    Qualifying: 'Clasificación',
+    'Sprint Qualifying': 'Clasificación sprint',
+    Sprint: 'Carrera sprint',
+    'Free Practice 1': 'Entrenamientos libres 1',
+    'Free Practice 2': 'Entrenamientos libres 2',
+    'Free Practice 3': 'Entrenamientos libres 3',
+    'Practice 1': 'Entrenamientos libres 1',
+    'Practice 2': 'Entrenamientos libres 2',
+    'Practice 3': 'Entrenamientos libres 3',
+    Practice: 'Entrenamientos',
+    'Warm Up': 'Calentamiento',
+    'Qualifying 1': 'Clasificación 1',
+    'Qualifying 2': 'Clasificación 2',
+  };
+  return translations[sessionName] ?? sessionName;
 }
 
 function formatGrandPrix(grandPrix: string) {
-  return grandPrix.replace(' Grand Prix', ' GP');
+  return grandPrix.endsWith(' Grand Prix')
+    ? `GP de ${grandPrix.slice(0, -' Grand Prix'.length)}`
+    : grandPrix;
 }

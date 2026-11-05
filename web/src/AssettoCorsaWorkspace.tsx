@@ -37,63 +37,63 @@ export function AssettoCorsaWorkspace({ details, comparison, comparisonLoading, 
   return <div className="page-content assetto-workspace">
     <section className="page-heading assetto-heading">
       <div><div className="eyebrow"><span>ASSETTO CORSA</span><i /> {details.circuit} <i /> {details.car}</div>
-        <h1>Session <span>analysis</span></h1><p>Telemetría de conducción, trazada y comparación de vueltas.</p></div>
-      <span className="data-badge"><span className="status-dot" /> CSV TELEMETRY</span>
+        <h1>Análisis <span>de sesión</span></h1><p>Telemetría de conducción, trazada y comparación de vueltas.</p></div>
+      <span className="data-badge"><span className="status-dot" /> TELEMETRÍA CSV</span>
     </section>
 
     <section className="assetto-session-hero">
       {details.carImageUrl && <img className="assetto-car-image" src={api.assetUrl(details.carImageUrl) ?? undefined} alt={`Coche ${details.car}`} />}
-      <div className="assetto-session-identity"><small>VEHICLE / CIRCUIT</small><strong>{details.car}</strong><span>{details.circuit}</span></div>
+      <div className="assetto-session-identity"><small>VEHÍCULO / CIRCUITO</small><strong>{details.car}</strong><span>{details.circuit}</span></div>
       <div className="assetto-specs">
-        <Spec label="MAX RPM" value={details.specs.maxRpm?.toLocaleString('es-ES') ?? '—'} />
-        <Spec label="POWER" value={formatPower(details.specs.maxPowerWatts)} />
-        <Spec label="TORQUE" value={details.specs.maxTorqueNm == null ? '—' : `${details.specs.maxTorqueNm.toFixed(0)} Nm`} />
-        <Spec label="FUEL CAPACITY" value={details.specs.maxFuelLitres == null ? '—' : `${details.specs.maxFuelLitres.toFixed(0)} L`} />
+        <Spec label="RPM MÁXIMAS" value={details.specs.maxRpm?.toLocaleString('es-ES') ?? '—'} />
+        <Spec label="POTENCIA" value={formatPower(details.specs.maxPowerWatts)} />
+        <Spec label="PAR MOTOR" value={details.specs.maxTorqueNm == null ? '—' : `${details.specs.maxTorqueNm.toFixed(0)} Nm`} />
+        <Spec label="CAPACIDAD DE COMBUSTIBLE" value={details.specs.maxFuelLitres == null ? '—' : `${details.specs.maxFuelLitres.toFixed(0)} L`} />
       </div>
     </section>
 
     <section className="assetto-metrics-grid">
-      <Metric icon={<Activity size={16} />} label="SAMPLES" value={details.sampleCount.toLocaleString('es-ES')} detail="telemetry rows" />
-      <Metric icon={<Timer size={16} />} label="SESSION TIME" value={formatDuration(details.durationSeconds)} detail={`${details.lapCount} complete laps detected`} />
-      <Metric icon={<Gauge size={16} />} label="PEAK SPEED" value={details.peakSpeedKph == null ? '—' : `${details.peakSpeedKph.toFixed(1)} km/h`} detail="session maximum" />
-      <Metric icon={<Timer size={16} />} label="BEST LAP" value={details.bestLapSeconds == null ? '—' : formatLapTime(details.bestLapSeconds)} detail="reconstructed from track position" />
+      <Metric icon={<Activity size={16} />} label="MUESTRAS" value={details.sampleCount.toLocaleString('es-ES')} detail="filas de telemetría" />
+      <Metric icon={<Timer size={16} />} label="DURACIÓN DE SESIÓN" value={formatDuration(details.durationSeconds)} detail={`${details.lapCount} vueltas completas detectadas`} />
+      <Metric icon={<Gauge size={16} />} label="VELOCIDAD MÁXIMA" value={details.peakSpeedKph == null ? '—' : `${details.peakSpeedKph.toFixed(1)} km/h`} detail="máximo de la sesión" />
+      <Metric icon={<Timer size={16} />} label="MEJOR VUELTA" value={details.bestLapSeconds == null ? '—' : formatLapTime(details.bestLapSeconds)} detail="reconstruida según la posición en pista" />
     </section>
 
     {details.warnings.length > 0 && <section className="assetto-data-quality">
-      <div><TriangleAlert size={16} /><strong>Data quality notes</strong></div>
+      <div><TriangleAlert size={16} /><strong>Observaciones sobre la calidad de los datos</strong></div>
       <ul>{details.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
     </section>}
 
     <section className="assetto-panel">
-      <PanelHeading index="01" title="Track map" detail="Position coloured by speed · start/finish proximity used for lap reconstruction" />
+      <PanelHeading index="01" title="Mapa del circuito" detail="Posición coloreada según la velocidad · la proximidad a la salida/meta se usa para reconstruir las vueltas" />
       <div className="assetto-track-layout">
         <TrackMap details={details} />
         <div className="assetto-map-aside">
-          {details.mapUrl && <img src={api.assetUrl(details.mapUrl) ?? undefined} alt={`${details.circuit} circuit reference map`} />}
-          <div className="assetto-gradient-legend"><span>LOW SPEED</span><i /><span>HIGH SPEED</span></div>
-          <p>The trajectory comes from simulation coordinates. The supplied map is shown separately as a reference and isn't scale-aligned.</p>
+          {details.mapUrl && <img src={api.assetUrl(details.mapUrl) ?? undefined} alt={`Mapa de referencia del circuito ${details.circuit}`} />}
+          <div className="assetto-gradient-legend"><span>VELOCIDAD BAJA</span><i /><span>VELOCIDAD ALTA</span></div>
+          <p>La trayectoria procede de las coordenadas del simulador. El mapa proporcionado se muestra como referencia independiente y no está ajustado a escala.</p>
         </div>
       </div>
     </section>
 
     {details.laps.length > 0 && <>
       <section className="assetto-panel assetto-compare-panel">
-        <PanelHeading index="02" title="Lap comparison" detail="Signals aligned by travelled distance · delta = compared − reference" />
+        <PanelHeading index="02" title="Comparación de vueltas" detail="Señales alineadas por distancia recorrida · diferencia = comparada − referencia" />
         <div className="assetto-compare-controls">
-          <label>REFERENCE LAP<select value={referenceLap} onChange={(event) => changeReference(Number(event.target.value))}>{details.laps.map((lap) => <option key={lap.number} value={lap.number}>Lap {lap.number} · {formatLapTime(lap.lapTimeSeconds)}</option>)}</select></label>
-          <span className="assetto-vs">VS</span>
-          <label>COMPARED LAP<select value={comparedLap} onChange={(event) => changeCompared(Number(event.target.value))}>{details.laps.filter((lap) => lap.number !== referenceLap).map((lap) => <option key={lap.number} value={lap.number}>Lap {lap.number} · {formatLapTime(lap.lapTimeSeconds)}</option>)}</select></label>
-          <div className="assetto-delta-readout"><small>TIME DELTA</small><strong className={comparison && comparison.deltaLapTimeSeconds < 0 ? 'faster' : ''}>{comparison ? formatDelta(comparison.deltaLapTimeSeconds) : comparisonLoading ? 'Calculating…' : '—'}</strong></div>
+          <label>VUELTA DE REFERENCIA<select value={referenceLap} onChange={(event) => changeReference(Number(event.target.value))}>{details.laps.map((lap) => <option key={lap.number} value={lap.number}>Vuelta {lap.number} · {formatLapTime(lap.lapTimeSeconds)}</option>)}</select></label>
+          <span className="assetto-vs">VS.</span>
+          <label>VUELTA COMPARADA<select value={comparedLap} onChange={(event) => changeCompared(Number(event.target.value))}>{details.laps.filter((lap) => lap.number !== referenceLap).map((lap) => <option key={lap.number} value={lap.number}>Vuelta {lap.number} · {formatLapTime(lap.lapTimeSeconds)}</option>)}</select></label>
+          <div className="assetto-delta-readout"><small>DIFERENCIA DE TIEMPO</small><strong className={comparison && comparison.deltaLapTimeSeconds < 0 ? 'faster' : ''}>{comparison ? formatDelta(comparison.deltaLapTimeSeconds) : comparisonLoading ? 'Calculando…' : '—'}</strong></div>
         </div>
         {reference && compared && <div className="assetto-lap-stats">
-          <LapStat label={`REFERENCE · LAP ${reference.number}`} value={formatLapTime(reference.lapTimeSeconds)} sub={`${reference.maxSpeedKph.toFixed(1)} km/h peak · ${reference.distanceMeters.toFixed(0)} m`} color={colors.reference} />
-          <LapStat label={`COMPARED · LAP ${compared.number}`} value={formatLapTime(compared.lapTimeSeconds)} sub={`${compared.maxSpeedKph.toFixed(1)} km/h peak · ${compared.distanceMeters.toFixed(0)} m`} color={colors.compared} />
+          <LapStat label={`REFERENCIA · VUELTA ${reference.number}`} value={formatLapTime(reference.lapTimeSeconds)} sub={`${reference.maxSpeedKph.toFixed(1)} km/h máxima · ${reference.distanceMeters.toFixed(0)} m`} color={colors.reference} />
+          <LapStat label={`COMPARADA · VUELTA ${compared.number}`} value={formatLapTime(compared.lapTimeSeconds)} sub={`${compared.maxSpeedKph.toFixed(1)} km/h máxima · ${compared.distanceMeters.toFixed(0)} m`} color={colors.compared} />
         </div>}
         {comparison && <div className="assetto-charts-grid">
-          <AssettoChart title="Speed trace" unit="km/h" points={comparison.points.map((point) => ({ x: point.relativeDistance, first: point.reference.speedKph, second: point.compared.speedKph }))} />
-          <AssettoChart title="Throttle & brake" unit="input · 0–1" range={[0, 1]} points={comparison.points.map((point) => ({ x: point.relativeDistance, first: point.reference.throttle, second: point.compared.throttle, third: point.reference.brake, fourth: point.compared.brake }))} labels={['THROTTLE REF', 'THROTTLE COMP', 'BRAKE REF', 'BRAKE COMP']} colors={[colors.reference, colors.compared, '#68aaff', '#bb8bf3']} toggleable />
-          <AssettoChart title="Time delta" unit="seconds · compared − reference" points={comparison.points.map((point) => ({ x: point.relativeDistance, first: point.deltaElapsedSeconds }))} zeroLine />
-          <AssettoChart title="Lateral acceleration" unit="g" points={comparison.points.map((point) => ({ x: point.relativeDistance, first: point.reference.lateralG, second: point.compared.lateralG }))} />
+          <AssettoChart title="Velocidad" unit="km/h" points={comparison.points.map((point) => ({ x: point.relativeDistance, first: point.reference.speedKph, second: point.compared.speedKph }))} />
+          <AssettoChart title="Acelerador y freno" unit="entrada · 0–1" range={[0, 1]} points={comparison.points.map((point) => ({ x: point.relativeDistance, first: point.reference.throttle, second: point.compared.throttle, third: point.reference.brake, fourth: point.compared.brake }))} labels={['ACELERADOR REF.', 'ACELERADOR COMP.', 'FRENO REF.', 'FRENO COMP.']} colors={[colors.reference, colors.compared, '#68aaff', '#bb8bf3']} toggleable />
+          <AssettoChart title="Diferencia de tiempo" unit="segundos · comparada − referencia" points={comparison.points.map((point) => ({ x: point.relativeDistance, first: point.deltaElapsedSeconds }))} zeroLine />
+          <AssettoChart title="Aceleración lateral" unit="g" points={comparison.points.map((point) => ({ x: point.relativeDistance, first: point.reference.lateralG, second: point.compared.lateralG }))} />
         </div>}
         {comparison && <ReportPanel
           title="Oportunidades observadas · Assetto Corsa"
@@ -107,19 +107,19 @@ export function AssettoCorsaWorkspace({ details, comparison, comparisonLoading, 
       </section>
 
       <section className="assetto-panel">
-        <PanelHeading index="03" title="Tyre temperatures" detail="Tyre core temperature by wheel · °C" />
+        <PanelHeading index="03" title="Temperatura de los neumáticos" detail="Temperatura del núcleo por rueda · °C" />
         {comparison ? <TyreCards comparison={comparison} /> : <div className="assetto-empty">Elige dos vueltas detectadas para cargar la telemetría comparativa.</div>}
       </section>
     </>}
 
     <section className="assetto-panel">
-      <PanelHeading index="04" title="Lap analysis" detail={`${details.laps.length} detected laps · robust speed percentile and travelled distance`} />
-      <div className="assetto-table-wrap"><table className="assetto-table"><thead><tr><th>LAP</th><th>LAP TIME</th><th>DISTANCE</th><th>AVG SPEED</th><th>PEAK SPEED</th><th>MAX RPM</th><th>FUEL Δ</th><th title="Number of telemetry rows recorded within this lap">SAMPLES / LAP</th></tr></thead>
+      <PanelHeading index="04" title="Análisis de vueltas" detail={`${details.laps.length} vueltas detectadas · percentil robusto de velocidad y distancia recorrida`} />
+      <div className="assetto-table-wrap"><table className="assetto-table"><thead><tr><th>VUELTA</th><th>TIEMPO</th><th>DISTANCIA</th><th>VELOCIDAD MEDIA</th><th>VELOCIDAD MÁXIMA</th><th>RPM MÁXIMAS</th><th>COMBUSTIBLE Δ</th><th title="Número de filas de telemetría registradas durante esta vuelta">MUESTRAS / VUELTA</th></tr></thead>
         <tbody>{details.laps.map((lap) => <tr key={lap.number} className={lap.number === bestLapNumber ? 'best' : ''}>
-          <td>{lap.number}</td><td>{formatLapTime(lap.lapTimeSeconds)}</td><td>{lap.distanceMeters.toFixed(0)} m</td><td>{lap.averageSpeedKph.toFixed(1)} km/h</td><td>{lap.maxSpeedKph.toFixed(1)} km/h</td><td>{lap.maxRpm.toLocaleString('es-ES')}</td><td>{(lap.fuelStartLitres - lap.fuelEndLitres).toFixed(2)} L</td><td title="Number of telemetry rows recorded within this lap">{lap.sampleCount.toLocaleString('es-ES')}</td>
+          <td>{lap.number}</td><td>{formatLapTime(lap.lapTimeSeconds)}</td><td>{lap.distanceMeters.toFixed(0)} m</td><td>{lap.averageSpeedKph.toFixed(1)} km/h</td><td>{lap.maxSpeedKph.toFixed(1)} km/h</td><td>{lap.maxRpm.toLocaleString('es-ES')}</td><td>{(lap.fuelStartLitres - lap.fuelEndLitres).toFixed(2)} L</td><td title="Número de filas de telemetría registradas durante esta vuelta">{lap.sampleCount.toLocaleString('es-ES')}</td>
         </tr>)}</tbody>
       </table>{details.laps.length === 0 && <div className="assetto-empty">No hay vueltas completas fiables para listar.</div>}</div>
-      {details.laps.length > 0 && <p className="assetto-table-note">Samples = número de filas de telemetría registradas durante la vuelta.</p>}
+      {details.laps.length > 0 && <p className="assetto-table-note">Muestras = número de filas de telemetría registradas durante la vuelta.</p>}
     </section>
   </div>;
 }
@@ -209,13 +209,13 @@ function TrackMap({ details }: { readonly details: AssettoSessionDetails }) {
   if (!geometry) return <div className="assetto-empty">No hay coordenadas de trazada suficientes.</div>;
   const speeds = geometry.points.map((point) => point.speed); const min = Math.min(...speeds); const max = Math.max(...speeds);
   const color = (speed: number) => { const ratio = (speed - min) / Math.max(max - min, 1); return `hsl(${155 - ratio * 125} 78% 62%)`; };
-  return <div className="assetto-track-svg-wrap"><svg className="assetto-track-svg" viewBox={`0 0 ${geometry.width} ${geometry.height}`} role="img" aria-label="Assetto Corsa track path coloured by speed">
+  return <div className="assetto-track-svg-wrap"><svg className="assetto-track-svg" viewBox={`0 0 ${geometry.width} ${geometry.height}`} role="img" aria-label="Trazada de Assetto Corsa coloreada según la velocidad">
     {geometry.points.slice(1).map((point, index) => { const first = geometry.points[index]; return <line key={index} x1={first.x} y1={first.y} x2={point.x} y2={point.y} stroke={color((first.speed + point.speed) / 2)} strokeWidth="3.2" strokeLinecap="round" />; })}
-    <circle cx={geometry.points[0].x} cy={geometry.points[0].y} r="5" fill="#f4f7f7" stroke="#111318" strokeWidth="2"><title>Session start</title></circle>
+    <circle cx={geometry.points[0].x} cy={geometry.points[0].y} r="5" fill="#f4f7f7" stroke="#111318" strokeWidth="2"><title>Inicio de sesión</title></circle>
   </svg></div>;
 }
 
-function AssettoChart({ title, unit, points, range, zeroLine, labels = ['REFERENCE', 'COMPARED'], colors: lineColors = [colors.reference, colors.compared], toggleable = false }: {
+function AssettoChart({ title, unit, points, range, zeroLine, labels = ['REFERENCIA', 'COMPARADA'], colors: lineColors = [colors.reference, colors.compared], toggleable = false }: {
   readonly title: string; readonly unit: string; readonly points: { x: number; first: number; second?: number; third?: number; fourth?: number }[];
   readonly range?: [number, number]; readonly zeroLine?: boolean; readonly labels?: string[]; readonly colors?: string[]; readonly toggleable?: boolean;
 }) {
@@ -232,10 +232,10 @@ function AssettoChart({ title, unit, points, range, zeroLine, labels = ['REFEREN
   return <section className="assetto-chart-card"><header><div><h3>{title}</h3><span>{unit}</span></div><div className="assetto-chart-legend">{labels.map((label, index) => {
     const isVisible = visibleSeries.includes(index);
     return toggleable
-      ? <button type="button" key={label} className={`assetto-chart-legend-toggle ${isVisible ? 'is-active' : ''}`} style={{ color: lineColors[index] }} onClick={() => setVisibleSeries((current) => isVisible ? current.filter((item) => item !== index) : [...current, index])} aria-pressed={isVisible} aria-label={`${isVisible ? 'Hide' : 'Show'} ${label}`}><i style={{ background: lineColors[index] }} />{label}</button>
+      ? <button type="button" key={label} className={`assetto-chart-legend-toggle ${isVisible ? 'is-active' : ''}`} style={{ color: lineColors[index] }} onClick={() => setVisibleSeries((current) => isVisible ? current.filter((item) => item !== index) : [...current, index])} aria-pressed={isVisible} aria-label={`${isVisible ? 'Ocultar' : 'Mostrar'} ${label}`}><i style={{ background: lineColors[index] }} />{label}</button>
       : <span key={label} style={{ color: lineColors[index] }}><i style={{ background: lineColors[index] }} />{label}</span>;
   })}</div></header>
-    <div className="assetto-chart-scroll"><svg data-racemind-chart-anchor="true" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title}, plotted by lap distance`}>
+    <div className="assetto-chart-scroll"><svg data-racemind-chart-anchor="true" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title}, representado según la distancia de vuelta`}>
        {Array.from({ length: 5 }, (_, index) => { const value = min + (max - min) * index / 4; return <g key={index}><line x1={left} x2={width - right} y1={y(value)} y2={y(value)} className="assetto-gridline" /><text x={left - 7} y={y(value) + 3} textAnchor="end" className="assetto-axis-label">{value.toFixed(1)}</text></g>; })}
       {highlightedRanges.map((highlight, index) => { const first = x(highlight.start); const last = x(highlight.end); return <g key={`finding-highlight-${index}`} pointerEvents="none">{Math.abs(last - first) < 2 ? <line x1={first} x2={first} y1={top} y2={height - bottom} className="finding-chart-cursor" /> : <rect x={first} y={top} width={last - first} height={height - top - bottom} className="finding-chart-range" />}</g>; })}
       {zeroLine && min < 0 && max > 0 && <line x1={left} x2={width - right} y1={y(0)} y2={y(0)} className="assetto-zero-line" />}
@@ -247,12 +247,12 @@ function AssettoChart({ title, unit, points, range, zeroLine, labels = ['REFEREN
 
 function TyreCards({ comparison }: { readonly comparison: AssettoLapComparison }) {
   const keys = ['tyreCoreFl', 'tyreCoreFr', 'tyreCoreRl', 'tyreCoreRr'] as const;
-  const labels = ['FRONT LEFT', 'FRONT RIGHT', 'REAR LEFT', 'REAR RIGHT'];
+  const labels = ['DELANTERO IZQUIERDO', 'DELANTERO DERECHO', 'TRASERO IZQUIERDO', 'TRASERO DERECHO'];
   return <div className="assetto-tyres-grid">{keys.map((key, index) => {
     const refValues = comparison.points.map((point) => point.reference[key]); const cmpValues = comparison.points.map((point) => point.compared[key]);
     const avg = (items: number[]) => items.reduce((total, value) => total + value, 0) / Math.max(items.length, 1);
     const available = Math.max(...refValues) - Math.min(...refValues) > 1 && Math.max(...cmpValues) - Math.min(...cmpValues) > 1;
-    return <article key={key}><small>{labels[index]}</small><strong>{available ? <>{avg(refValues).toFixed(1)}° <i>/</i> {avg(cmpValues).toFixed(1)}°</> : '—'}</strong><span>{available ? 'reference / compared · core °C' : 'temperature channel unavailable / constant'}</span></article>;
+    return <article key={key}><small>{labels[index]}</small><strong>{available ? <>{avg(refValues).toFixed(1)}° <i>/</i> {avg(cmpValues).toFixed(1)}°</> : '—'}</strong><span>{available ? 'referencia / comparada · núcleo °C' : 'canal de temperatura no disponible o constante'}</span></article>;
   })}</div>;
 }
 
@@ -263,7 +263,7 @@ function PanelHeading({ index, title, detail }: { readonly index: string; readon
 function Spec({ label, value }: { readonly label: string; readonly value: string }) { return <div><small>{label}</small><strong>{value}</strong></div>; }
 function Metric({ icon, label, value, detail }: { readonly icon: React.ReactNode; readonly label: string; readonly value: string; readonly detail: string }) { return <article className="assetto-metric"><i>{icon}</i><small>{label}</small><strong>{value}</strong><span>{detail}</span></article>; }
 function LapStat({ label, value, sub, color }: { readonly label: string; readonly value: string; readonly sub: string; readonly color: string }) { return <article><small style={{ color }}>{label}</small><strong>{value}</strong><span>{sub}</span></article>; }
-function formatDuration(seconds: number) { const minutes = Math.floor(seconds / 60); return `${minutes}m ${(seconds % 60).toFixed(0)}s`; }
+function formatDuration(seconds: number) { const minutes = Math.floor(seconds / 60); return `${minutes} min ${(seconds % 60).toFixed(0)} s`; }
 function formatLapTime(seconds: number) { return `${Math.floor(seconds / 60)}:${(seconds % 60).toFixed(3).padStart(6, '0')}`; }
 function formatDelta(seconds: number) { return `${seconds > 0 ? '+' : seconds < 0 ? '−' : ''}${Math.abs(seconds).toFixed(3)} s`; }
 function formatPower(watts: number | null) { return watts == null ? '—' : `${Math.round(watts / 735.49875).toLocaleString('es-ES')} CV (${(watts / 1000).toFixed(0)} kW)`; }

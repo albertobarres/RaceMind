@@ -55,7 +55,7 @@ export function SeriesChart({ title, unit, comparison, series, format, range, to
           {series.map((item) => {
             const isVisible = visibleKeys.includes(item.key);
             return toggleable
-              ? <button type="button" key={item.key} className={`chart-legend-toggle ${isVisible ? 'is-active' : ''}`} style={{ color: item.color }} onClick={() => setVisibleKeys((current) => isVisible ? current.filter((key) => key !== item.key) : [...current, item.key])} aria-pressed={isVisible} aria-label={`${isVisible ? 'Hide' : 'Show'} ${item.label}`}><i style={{ background: item.color }} />{item.label}</button>
+              ? <button type="button" key={item.key} className={`chart-legend-toggle ${isVisible ? 'is-active' : ''}`} style={{ color: item.color }} onClick={() => setVisibleKeys((current) => isVisible ? current.filter((key) => key !== item.key) : [...current, item.key])} aria-pressed={isVisible} aria-label={`${isVisible ? 'Ocultar' : 'Mostrar'} ${item.label}`}><i style={{ background: item.color }} />{item.label}</button>
               : <span key={item.key} style={{ color: item.color }}><i style={{ background: item.color }} />{item.label}</span>;
           })}
         </div>

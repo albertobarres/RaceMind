@@ -33,47 +33,47 @@ export function KartingWorkspace({ details, comparison, comparisonLoading, onCom
   return <div className="page-content karting-workspace">
     <section className="page-heading karting-heading">
       <div><div className="eyebrow"><span>KARTING</span><i /> {details.circuit} <i /> {details.vehicle}</div>
-        <h1>Real track <span>analysis</span></h1><p>AiM telemetry · {details.racer} · {details.date} · {details.sessionTime}</p></div>
-      <span className="data-badge"><span className="status-dot" /> REAL DATA · {details.sampleRateHz} HZ</span>
+        <h1>Análisis <span>de trazada</span></h1><p>Telemetría AiM · {details.racer} · {details.date} · {details.sessionTime}</p></div>
+      <span className="data-badge"><span className="status-dot" /> DATOS REALES · {details.sampleRateHz} HZ</span>
     </section>
 
     <section className="karting-metrics">
-      <Metric icon={<Activity size={16} />} label="SAMPLES" value={details.sampleCount.toLocaleString('es-ES')} detail="telemetry rows" />
-      <Metric icon={<Timer size={16} />} label="SESSION TIME" value={formatDuration(details.durationSeconds)} detail={`${details.lapCount} beacon segments`} />
-      <Metric icon={<Gauge size={16} />} label="PEAK SPEED" value={`${details.peakSpeedKph.toFixed(1)} km/h`} detail="GPS maximum" />
-      <Metric icon={<Timer size={16} />} label="BEST VALID LAP" value={details.bestLapSeconds == null ? '—' : formatLapTime(details.bestLapSeconds)} detail={`${comparable.length} laps pass comparison filters`} />
+      <Metric icon={<Activity size={16} />} label="MUESTRAS" value={details.sampleCount.toLocaleString('es-ES')} detail="filas de telemetría" />
+      <Metric icon={<Timer size={16} />} label="DURACIÓN DE SESIÓN" value={formatDuration(details.durationSeconds)} detail={`${details.lapCount} segmentos de baliza`} />
+      <Metric icon={<Gauge size={16} />} label="VELOCIDAD MÁXIMA" value={`${details.peakSpeedKph.toFixed(1)} km/h`} detail="máximo GPS" />
+      <Metric icon={<Timer size={16} />} label="MEJOR VUELTA VÁLIDA" value={details.bestLapSeconds == null ? '—' : formatLapTime(details.bestLapSeconds)} detail={`${comparable.length} vueltas superan los filtros de comparación`} />
     </section>
 
-    {details.warnings.length > 0 && <section className="karting-quality"><div><TriangleAlert size={16} /><strong>Data validation</strong></div>
+    {details.warnings.length > 0 && <section className="karting-quality"><div><TriangleAlert size={16} /><strong>Validación de datos</strong></div>
       <ul>{details.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></section>}
 
     <section className="karting-panel">
-      <PanelHeading index="01" title="GPS track" detail="Track trace from real latitude / longitude · coloured by speed" />
+      <PanelHeading index="01" title="Trazada GPS" detail="Recorrido a partir de latitud y longitud reales · coloreado según la velocidad" />
       <div className="karting-track-layout"><TrackMap details={details} />
-        <div className="karting-track-aside"><div><small>ENGINE</small><strong>{Math.round(details.peakRpm).toLocaleString('es-ES')} rpm</strong><span>session peak</span></div>
-          <div><small>WATER TEMPERATURE</small><strong>{details.startWaterTemperatureCelsius.toFixed(1)}° → {details.endWaterTemperatureCelsius.toFixed(1)}°C</strong><span>first to last sample</span></div>
-          <div className="karting-legend"><i /> LOW SPEED <i className="high" /> HIGH SPEED</div>
-          <p>Track positions are plotted in geographic coordinates. GPS points with reported accuracy ≥100 mm remain visible but are flagged by the API quality notes.</p>
+        <div className="karting-track-aside"><div><small>MOTOR</small><strong>{Math.round(details.peakRpm).toLocaleString('es-ES')} rpm</strong><span>máximo de la sesión</span></div>
+          <div><small>TEMPERATURA DEL AGUA</small><strong>{details.startWaterTemperatureCelsius.toFixed(1)}° → {details.endWaterTemperatureCelsius.toFixed(1)}°C</strong><span>primera y última muestra</span></div>
+          <div className="karting-legend"><i /> VELOCIDAD BAJA <i className="high" /> VELOCIDAD ALTA</div>
+          <p>Las posiciones de la trazada se representan en coordenadas geográficas. Los puntos GPS con precisión indicada ≥100 mm se muestran, pero la API los señala en las observaciones de calidad.</p>
         </div>
       </div>
     </section>
 
     <section className="karting-panel">
-      <PanelHeading index="02" title="Lap comparison" detail="Signals aligned by travelled GPS distance · delta = compared − reference" />
+      <PanelHeading index="02" title="Comparación de vueltas" detail="Señales alineadas por distancia GPS recorrida · diferencia = comparada − referencia" />
       {comparable.length >= 2 ? <>
         <div className="karting-controls">
-          <label>REFERENCE LAP<select value={referenceLap} onChange={(event) => changeReference(Number(event.target.value))}>{comparable.filter((lap) => lap.number !== comparedLap).map((lap) => <option key={lap.number} value={lap.number}>Lap {lap.number} · {formatLapTime(lap.lapTimeSeconds)}</option>)}</select></label>
-          <span>VS</span>
-          <label>COMPARED LAP<select value={comparedLap} onChange={(event) => changeCompared(Number(event.target.value))}>{comparable.filter((lap) => lap.number !== referenceLap).map((lap) => <option key={lap.number} value={lap.number}>Lap {lap.number} · {formatLapTime(lap.lapTimeSeconds)}</option>)}</select></label>
-          <div className="karting-delta"><small>TIME DELTA</small><strong className={comparison && comparison.deltaLapTimeSeconds < 0 ? 'faster' : ''}>{comparison ? formatDelta(comparison.deltaLapTimeSeconds) : comparisonLoading ? 'Calculating…' : '—'}</strong></div>
+          <label>VUELTA DE REFERENCIA<select value={referenceLap} onChange={(event) => changeReference(Number(event.target.value))}>{comparable.filter((lap) => lap.number !== comparedLap).map((lap) => <option key={lap.number} value={lap.number}>Vuelta {lap.number} · {formatLapTime(lap.lapTimeSeconds)}</option>)}</select></label>
+          <span>VS.</span>
+          <label>VUELTA COMPARADA<select value={comparedLap} onChange={(event) => changeCompared(Number(event.target.value))}>{comparable.filter((lap) => lap.number !== referenceLap).map((lap) => <option key={lap.number} value={lap.number}>Vuelta {lap.number} · {formatLapTime(lap.lapTimeSeconds)}</option>)}</select></label>
+          <div className="karting-delta"><small>DIFERENCIA DE TIEMPO</small><strong className={comparison && comparison.deltaLapTimeSeconds < 0 ? 'faster' : ''}>{comparison ? formatDelta(comparison.deltaLapTimeSeconds) : comparisonLoading ? 'Calculando…' : '—'}</strong></div>
         </div>
         {comparison && <div className="karting-chart-grid">
-          <KartingChart title="Speed trace" unit="km/h" points={comparison.points.map((point) => ({ x: point.relativeDistance, a: point.reference.speedKph, b: point.compared.speedKph }))} labels={[`LAP ${comparison.referenceLap}`, `LAP ${comparison.comparedLap}`]} />
-          <KartingChart title="Time delta" unit="seconds · compared − reference" points={comparison.points.map((point) => ({ x: point.relativeDistance, a: point.deltaElapsedSeconds }))} zeroLine labels={['DELTA']} />
-          <KartingChart title="Engine speed" unit="rpm" points={comparison.points.map((point) => ({ x: point.relativeDistance, a: point.reference.rpm, b: point.compared.rpm }))} labels={[`LAP ${comparison.referenceLap}`, `LAP ${comparison.comparedLap}`]} />
-          <KartingChart title="Acceleration" unit="g · GPS channels" points={comparison.points.map((point) => ({ x: point.relativeDistance, a: point.reference.lateralG, b: point.compared.lateralG, c: point.reference.longitudinalG, d: point.compared.longitudinalG }))} labels={['LAT REF', 'LAT COMP', 'LONG REF', 'LONG COMP']} toggleable />
-          <KartingChart title="Water temperature" unit="°C" points={comparison.points.map((point) => ({ x: point.relativeDistance, a: point.reference.waterTemperatureCelsius, b: point.compared.waterTemperatureCelsius }))} labels={[`LAP ${comparison.referenceLap}`, `LAP ${comparison.comparedLap}`]} />
-          <KartingChart title="Gear" unit="discrete state · N / 1 / 2" points={comparison.points.map((point) => ({ x: point.relativeDistance, a: point.reference.gear, b: point.compared.gear }))} range={[0, 2]} tickValues={[0, 1, 2]} tickLabel={(value) => value === 0 ? 'N' : String(value)} labels={[`LAP ${comparison.referenceLap}`, `LAP ${comparison.comparedLap}`]} />
+          <KartingChart title="Velocidad" unit="km/h" points={comparison.points.map((point) => ({ x: point.relativeDistance, a: point.reference.speedKph, b: point.compared.speedKph }))} labels={[`VUELTA ${comparison.referenceLap}`, `VUELTA ${comparison.comparedLap}`]} />
+          <KartingChart title="Diferencia de tiempo" unit="segundos · comparada − referencia" points={comparison.points.map((point) => ({ x: point.relativeDistance, a: point.deltaElapsedSeconds }))} zeroLine labels={['DIFERENCIA']} />
+          <KartingChart title="Régimen del motor" unit="rpm" points={comparison.points.map((point) => ({ x: point.relativeDistance, a: point.reference.rpm, b: point.compared.rpm }))} labels={[`VUELTA ${comparison.referenceLap}`, `VUELTA ${comparison.comparedLap}`]} />
+          <KartingChart title="Aceleración" unit="g · canales GPS" points={comparison.points.map((point) => ({ x: point.relativeDistance, a: point.reference.lateralG, b: point.compared.lateralG, c: point.reference.longitudinalG, d: point.compared.longitudinalG }))} labels={['LATERAL REF.', 'LATERAL COMP.', 'LONGITUDINAL REF.', 'LONGITUDINAL COMP.']} toggleable />
+          <KartingChart title="Temperatura del agua" unit="°C" points={comparison.points.map((point) => ({ x: point.relativeDistance, a: point.reference.waterTemperatureCelsius, b: point.compared.waterTemperatureCelsius }))} labels={[`VUELTA ${comparison.referenceLap}`, `VUELTA ${comparison.comparedLap}`]} />
+          <KartingChart title="Marcha" unit="estado discreto · N / 1 / 2" points={comparison.points.map((point) => ({ x: point.relativeDistance, a: point.reference.gear, b: point.compared.gear }))} range={[0, 2]} tickValues={[0, 1, 2]} tickLabel={(value) => value === 0 ? 'N' : String(value)} labels={[`VUELTA ${comparison.referenceLap}`, `VUELTA ${comparison.comparedLap}`]} />
         </div>}
         {comparison && <ReportPanel
           title="Oportunidades observadas · Karting"
@@ -88,10 +88,10 @@ export function KartingWorkspace({ details, comparison, comparisonLoading, onCom
     </section>
 
     <section className="karting-panel">
-      <PanelHeading index="03" title="Beacon lap analysis" detail={`${details.beaconCount} beacon markers · launch and in-lap segments excluded from comparisons`} />
-      <div className="karting-table-wrap"><table className="karting-table"><thead><tr><th>SEGMENT</th><th>TIME</th><th>DISTANCE</th><th>AVG SPEED</th><th>PEAK SPEED</th><th>MAX RPM</th><th>WATER TEMP</th><th>GEAR 1 / 2</th><th>QUALITY</th></tr></thead>
+      <PanelHeading index="03" title="Análisis de segmentos por baliza" detail={`${details.beaconCount} marcas de baliza · los segmentos de salida y vuelta de entrada se excluyen de las comparaciones`} />
+      <div className="karting-table-wrap"><table className="karting-table"><thead><tr><th>SEGMENTO</th><th>TIEMPO</th><th>DISTANCIA</th><th>VELOCIDAD MEDIA</th><th>VELOCIDAD MÁXIMA</th><th>RPM MÁXIMAS</th><th>TEMP. AGUA</th><th>MARCHAS 1 / 2</th><th>CALIDAD</th></tr></thead>
         <tbody>{details.laps.map((lap) => <tr key={lap.number} className={lap.number === bestLap?.number ? 'best' : ''}>
-          <td>{lap.number}</td><td>{formatLapTime(lap.lapTimeSeconds)}</td><td>{lap.distanceMeters.toFixed(0)} m</td><td>{lap.averageSpeedKph.toFixed(1)} km/h</td><td>{lap.maxSpeedKph.toFixed(1)} km/h</td><td>{Math.round(lap.maxRpm).toLocaleString('es-ES')}</td><td>{lap.averageWaterTemperatureCelsius.toFixed(1)} °C</td><td>{lap.gearOneSamples.toLocaleString('es-ES')} / {lap.gearTwoSamples.toLocaleString('es-ES')}</td><td><span className={`karting-quality-badge ${lap.isComparable ? 'valid' : ''}`}>{lap.quality}</span></td>
+          <td>{lap.number}</td><td>{formatLapTime(lap.lapTimeSeconds)}</td><td>{lap.distanceMeters.toFixed(0)} m</td><td>{lap.averageSpeedKph.toFixed(1)} km/h</td><td>{lap.maxSpeedKph.toFixed(1)} km/h</td><td>{Math.round(lap.maxRpm).toLocaleString('es-ES')}</td><td>{lap.averageWaterTemperatureCelsius.toFixed(1)} °C</td><td>{lap.gearOneSamples.toLocaleString('es-ES')} / {lap.gearTwoSamples.toLocaleString('es-ES')}</td><td><span className={`karting-quality-badge ${lap.isComparable ? 'valid' : ''}`}>{formatQuality(lap.quality)}</span></td>
         </tr>)}</tbody></table></div>
       <p className="karting-note">Marchas discretizadas al estado más próximo (N, 1 o 2). La marcha N se conserva separada y no se suma a los contadores de las dos marchas engranadas.</p>
     </section>
@@ -195,7 +195,7 @@ function KartingChart({ title, unit, points, labels, range, zeroLine = false, to
       ? <button type="button" key={label} className={`karting-chart-legend-toggle ${active ? 'is-active' : ''}`} style={{ color: colors[index] }} onClick={() => setVisibleSeries((current) => active ? current.filter((item) => item !== index) : [...current, index])} aria-pressed={active} aria-label={`${active ? 'Ocultar' : 'Mostrar'} ${label}`}><i style={{ background: colors[index] }} />{label}</button>
       : <span key={label}><i style={{ background: colors[index] }} />{label}</span>;
   })}</div></header>
-    <div className="karting-chart-svg-wrap"><svg data-racemind-chart-anchor="true" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title} by lap distance`}>
+    <div className="karting-chart-svg-wrap"><svg data-racemind-chart-anchor="true" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title}, representado según la distancia de vuelta`}>
        {axisTicks.map((value) => <g key={value}><line x1={left} x2={width - right} y1={y(value)} y2={y(value)} className="karting-gridline" /><text x={left - 7} y={y(value) + 3} textAnchor="end" className="karting-axis-label">{tickLabel ? tickLabel(value) : value.toFixed(1)}</text></g>)}
       {highlightedRanges.map((highlight, index) => { const first = x(highlight.start); const last = x(highlight.end); return <g key={`finding-highlight-${index}`} pointerEvents="none">{Math.abs(last - first) < 2 ? <line x1={first} x2={first} y1={top} y2={height - bottom} className="finding-chart-cursor" /> : <rect x={first} y={top} width={last - first} height={height - top - bottom} className="finding-chart-range" />}</g>; })}
       {zeroLine && min < 0 && max > 0 && <line x1={left} x2={width - right} y1={y(0)} y2={y(0)} className="karting-zero-line" />}
@@ -209,6 +209,10 @@ function PanelHeading({ index, title, detail }: { readonly index: string; readon
   return <header className="karting-panel-heading"><div><span>{index}</span><h2>{title}</h2></div><small>{detail}</small></header>;
 }
 function Metric({ icon, label, value, detail }: { readonly icon: React.ReactNode; readonly label: string; readonly value: string; readonly detail: string }) { return <article><i>{icon}</i><small>{label}</small><strong>{value}</strong><span>{detail}</span></article>; }
-function formatDuration(seconds: number) { return `${Math.floor(seconds / 60)}m ${(seconds % 60).toFixed(0)}s`; }
+function formatDuration(seconds: number) { return `${Math.floor(seconds / 60)} min ${(seconds % 60).toFixed(0)} s`; }
 function formatLapTime(seconds: number) { return `${Math.floor(seconds / 60)}:${(seconds % 60).toFixed(3).padStart(6, '0')}`; }
 function formatDelta(seconds: number) { return `${seconds > 0 ? '+' : seconds < 0 ? '−' : ''}${Math.abs(seconds).toFixed(3)} s`; }
+function formatQuality(quality: string) {
+  const translations: Record<string, string> = { comparable: 'Válida para comparar', valid: 'Válida', rejected: 'Descartada', partial: 'Parcial' };
+  return translations[quality.toLowerCase()] ?? quality;
+}
