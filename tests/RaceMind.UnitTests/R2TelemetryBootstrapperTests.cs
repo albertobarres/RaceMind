@@ -58,6 +58,38 @@ public sealed class R2TelemetryBootstrapperTests : IDisposable
     }
 
     [Fact]
+    public async Task DownloadAndExtractIfConfiguredAsync_DownloadsFromDirectHttpsUrlWithoutR2Credentials()
+    {
+        var archivePath = CreateValidArchive();
+        using var handler = new StaticArchiveHandler(await File.ReadAllBytesAsync(archivePath), "downloads.example.com", requireSignature: false);
+        using var client = new HttpClient(handler);
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["TelemetryArchive:Url"] = "https://downloads.example.com/racemind-demo.zip",
+            ["TelemetryArchive:DownloadEnabled"] = "true"
+        }).Build();
+        using var bootstrapper = new R2TelemetryBootstrapper(configuration, NullLogger<R2TelemetryBootstrapper>.Instance, client);
+
+        var root = await bootstrapper.DownloadAndExtractIfConfiguredAsync();
+
+        Assert.Equal("demo telemetry", await File.ReadAllTextAsync(Path.Combine(root!, "Coches", "demo.json")));
+        Assert.Equal(1, handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task DownloadAndExtractIfConfiguredAsync_RejectsNonHttpsDirectUrl()
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["TelemetryArchive:Url"] = "http://downloads.example.com/racemind-demo.zip",
+            ["TelemetryArchive:DownloadEnabled"] = "true"
+        }).Build();
+        using var bootstrapper = new R2TelemetryBootstrapper(configuration, NullLogger<R2TelemetryBootstrapper>.Instance, new HttpClient(new StaticArchiveHandler([])));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => bootstrapper.DownloadAndExtractIfConfiguredAsync());
+    }
+
+    [Fact]
     public async Task DownloadAndExtractIfConfiguredAsync_NormalizesWindowsZipEntrySeparators()
     {
         var archivePath = CreateBarcelonaArchiveWithWindowsSeparators();
@@ -160,7 +192,7 @@ public sealed class R2TelemetryBootstrapperTests : IDisposable
         if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
     }
 
-    private sealed class StaticArchiveHandler(byte[] archiveBytes) : HttpMessageHandler
+    private sealed class StaticArchiveHandler(byte[] archiveBytes, string expectedHost = "account.r2.cloudflarestorage.com", bool requireSignature = true) : HttpMessageHandler
     {
         public int RequestCount { get; private set; }
 
@@ -168,10 +200,17 @@ public sealed class R2TelemetryBootstrapperTests : IDisposable
         {
             RequestCount++;
             Assert.Equal(HttpMethod.Get, request.Method);
-            Assert.Equal("account.r2.cloudflarestorage.com", request.RequestUri!.Host);
-            var authorization = request.Headers.GetValues("Authorization").Single();
-            Assert.StartsWith("AWS4-HMAC-SHA256 Credential=AccessKey123456/", authorization);
-            AssertSignedGetRequest(request, authorization);
+            Assert.Equal(expectedHost, request.RequestUri!.Host);
+            if (requireSignature)
+            {
+                var authorization = request.Headers.GetValues("Authorization").Single();
+                Assert.StartsWith("AWS4-HMAC-SHA256 Credential=AccessKey123456/", authorization);
+                AssertSignedGetRequest(request, authorization);
+            }
+            else
+            {
+                Assert.False(request.Headers.Contains("Authorization"));
+            }
             var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK)
             {
                 Content = new ByteArrayContent(archiveBytes)

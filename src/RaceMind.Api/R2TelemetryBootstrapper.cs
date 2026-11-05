@@ -7,9 +7,9 @@ namespace RaceMind.Api;
 
 public class R2TelemetryBootstrapper : IDisposable
 {
-    private const long MaximumArchiveBytes = 32 * 1024 * 1024;
-    private const long MaximumExpandedBytes = 64 * 1024 * 1024;
-    private const int MaximumEntryCount = 128;
+    private const long MaximumArchiveBytes = 512 * 1024 * 1024;
+    private const long MaximumExpandedBytes = 512 * 1024 * 1024;
+    private const int MaximumEntryCount = 5_000;
     private readonly IConfiguration _configuration;
     private readonly ILogger<R2TelemetryBootstrapper> _logger;
     private readonly HttpClient _client;
@@ -19,13 +19,17 @@ public class R2TelemetryBootstrapper : IDisposable
     {
         _configuration = configuration;
         _logger = logger;
-        _client = client ?? new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+        _client = client ?? new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
         _ownsClient = client is null;
     }
 
     public async Task<string?> DownloadAndExtractIfConfiguredAsync(CancellationToken cancellationToken = default)
     {
         if (!_configuration.GetValue<bool>("TelemetryArchive:DownloadEnabled")) return null;
+
+        var archiveUrl = _configuration["TelemetryArchive:Url"];
+        if (!string.IsNullOrWhiteSpace(archiveUrl))
+            return await DownloadFromUrlAsync(archiveUrl, cancellationToken);
 
         var endpoint = _configuration["TelemetryArchive:Endpoint"];
         var bucket = _configuration["TelemetryArchive:Bucket"];
@@ -39,7 +43,7 @@ public class R2TelemetryBootstrapper : IDisposable
 
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var endpointUri) || endpointUri.Scheme != Uri.UriSchemeHttps ||
             endpointUri.UserInfo.Length > 0 || endpointUri.Query.Length > 0 || endpointUri.Fragment.Length > 0)
-            throw new InvalidOperationException("TelemetryArchive:Endpoint debe ser un endpoint HTTPS válido de R2.");
+            throw new InvalidOperationException("TelemetryArchive:Endpoint debe ser un endpoint HTTPS válido de R2 o configura TelemetryArchive:Url con una URL HTTPS de descarga directa.");
         if (!System.Text.RegularExpressions.Regex.IsMatch(accessKeyId!, "^[A-Za-z0-9]+$", System.Text.RegularExpressions.RegexOptions.CultureInvariant) ||
             !System.Text.RegularExpressions.Regex.IsMatch(secretAccessKey!, "^[A-Za-z0-9+/=]+$", System.Text.RegularExpressions.RegexOptions.CultureInvariant))
             throw new InvalidOperationException("El Access Key ID o Secret Access Key de R2 contiene caracteres no válidos.");
@@ -77,7 +81,33 @@ public class R2TelemetryBootstrapper : IDisposable
         }
 
         if (response.Content.Headers.ContentLength is > MaximumArchiveBytes)
-            throw new InvalidDataException("El paquete R2 supera el límite de tamaño de descarga de 32 MiB.");
+            throw new InvalidDataException("El paquete de telemetría supera el límite de tamaño de descarga de 512 MiB.");
+
+        return await DownloadResponseAndExtractAsync(response, cancellationToken);
+    }
+
+    private async Task<string> DownloadFromUrlAsync(string archiveUrl, CancellationToken cancellationToken)
+    {
+        if (!Uri.TryCreate(archiveUrl, UriKind.Absolute, out var archiveUri) || archiveUri.Scheme != Uri.UriSchemeHttps ||
+            archiveUri.UserInfo.Length > 0 || archiveUri.Fragment.Length > 0)
+            throw new InvalidOperationException("TelemetryArchive:Url debe ser una URL HTTPS válida y no puede incluir credenciales en el host.");
+
+        using var response = await _client.GetAsync(archiveUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError("Telemetry archive download failed with HTTP {StatusCode}.", (int)response.StatusCode);
+            throw new InvalidOperationException($"No se pudo descargar el paquete de telemetría (HTTP {(int)response.StatusCode}). Comprueba la URL y que permita la descarga directa.");
+        }
+        if (response.RequestMessage?.RequestUri is { } finalUri && finalUri.Scheme != Uri.UriSchemeHttps)
+            throw new InvalidOperationException("La descarga del paquete terminó en una URL que no usa HTTPS.");
+        if (response.Content.Headers.ContentLength is > MaximumArchiveBytes)
+            throw new InvalidDataException("El paquete de telemetría supera el límite de tamaño de descarga de 512 MiB.");
+
+        return await DownloadResponseAndExtractAsync(response, cancellationToken);
+    }
+
+    private async Task<string> DownloadResponseAndExtractAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
 
         var archiveRoot = Path.Combine(Path.GetTempPath(), "racemind-telemetry");
         var downloadPath = Path.Combine(Path.GetTempPath(), $"racemind-telemetry-{Guid.NewGuid():N}.zip");
@@ -93,7 +123,7 @@ public class R2TelemetryBootstrapper : IDisposable
                 while ((read = await source.ReadAsync(buffer, cancellationToken)) > 0)
                 {
                     total += read;
-                    if (total > MaximumArchiveBytes) throw new InvalidDataException("El paquete R2 supera el límite de tamaño de descarga de 32 MiB.");
+                    if (total > MaximumArchiveBytes) throw new InvalidDataException("El paquete de telemetría supera el límite de tamaño de descarga de 512 MiB.");
                     await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
                 }
             }
@@ -141,7 +171,7 @@ public class R2TelemetryBootstrapper : IDisposable
             }
 
             expandedBytes += entry.Length;
-            if (expandedBytes > MaximumExpandedBytes) throw new InvalidDataException("El ZIP expandido supera el límite de 64 MiB.");
+            if (expandedBytes > MaximumExpandedBytes) throw new InvalidDataException("El ZIP expandido supera el límite de 512 MiB.");
             Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
             using (var input = entry.Open())
             using (var output = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))

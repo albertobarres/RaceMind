@@ -96,8 +96,9 @@ builder.Services.AddCors(options => options.AddPolicy("frontend", policy =>
 
 var app = builder.Build();
 var r2DownloadEnabled = app.Configuration.GetValue<bool>("TelemetryArchive:DownloadEnabled");
-var hasR2ArchiveSettings = new[]
+var hasArchiveSettings = new[]
 {
+    app.Configuration["TelemetryArchive:Url"],
     app.Configuration["TelemetryArchive:Endpoint"],
     app.Configuration["TelemetryArchive:Bucket"],
     app.Configuration["TelemetryArchive:ObjectKey"],
@@ -105,29 +106,33 @@ var hasR2ArchiveSettings = new[]
     app.Configuration["TelemetryArchive:SecretAccessKey"]
 }.Any(value => !string.IsNullOrWhiteSpace(value));
 
-if (hasR2ArchiveSettings && !r2DownloadEnabled)
-    app.Logger.LogWarning("R2 archive settings are present but TelemetryArchive:DownloadEnabled is false. No telemetry archive will be downloaded.");
+if (hasArchiveSettings && !r2DownloadEnabled)
+    app.Logger.LogWarning("Telemetry archive settings are present but TelemetryArchive:DownloadEnabled is false. No telemetry archive will be downloaded.");
 
 if (r2DownloadEnabled)
 {
     var archiveTelemetryRoot = await app.Services.GetRequiredService<R2TelemetryBootstrapper>()
         .DownloadAndExtractIfConfiguredAsync();
     if (string.IsNullOrWhiteSpace(archiveTelemetryRoot))
-        throw new InvalidOperationException("TelemetryArchive:DownloadEnabled está activo, pero no se obtuvo ninguna ruta extraída de R2.");
+        throw new InvalidOperationException("TelemetryArchive:DownloadEnabled está activo, pero no se obtuvo ninguna ruta extraída.");
     activeTelemetryRoot = archiveTelemetryRoot;
 }
 
 var resolvedTelemetryRoot = GetDataRoot(app.Services, activeTelemetryRoot);
-var f1DataRoot = Path.Combine(resolvedTelemetryRoot, "Coches", "F1");
-var demoSessionPath = Path.Combine(f1DataRoot, "2026", "Barcelona Grand Prix", "Race", "session_laptimes.json");
+var requiredTelemetryFiles = app.Configuration.GetSection("TelemetryArchive:RequiredFiles").Get<string[]>() ?? [];
+var missingTelemetryFiles = requiredTelemetryFiles
+    .Where(path => !IsSafeRelativePath(path) || !File.Exists(Path.Combine(resolvedTelemetryRoot, path.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar))))
+    .ToArray();
 app.Logger.LogInformation(
-    "Telemetry root resolved to {TelemetryRoot}. F1 root exists: {F1RootExists}. Demo session metadata exists: {DemoSessionExists}.",
+    "Telemetry root resolved to {TelemetryRoot}. Required demo files found: {FoundFileCount}/{RequiredFileCount}.",
     resolvedTelemetryRoot,
-    Directory.Exists(f1DataRoot),
-    File.Exists(demoSessionPath));
+    requiredTelemetryFiles.Length - missingTelemetryFiles.Length,
+    requiredTelemetryFiles.Length);
 
-if (r2DownloadEnabled && !File.Exists(demoSessionPath))
-    throw new InvalidDataException($"El archivo R2 se extrajo, pero no se encontró la sesión demo esperada en '{demoSessionPath}'. Comprueba el ZIP y TelemetryDataRoot.");
+if (r2DownloadEnabled && missingTelemetryFiles.Length > 0)
+{
+    throw new InvalidDataException($"El archivo de telemetría se extrajo, pero faltan ficheros requeridos de la demo: {string.Join(", ", missingTelemetryFiles)}");
+}
 
 var userStore = app.Services.GetRequiredService<UserStore>();
 await userStore.InitializeAsync(adminUsername, adminPassword, adminDisplayName);
@@ -501,6 +506,11 @@ static string? FindTelemetryDataRoot(string startDirectory)
 
     return null;
 }
+
+static bool IsSafeRelativePath(string path) =>
+    !string.IsNullOrWhiteSpace(path) &&
+    !Path.IsPathRooted(path) &&
+    path.Replace('\\', '/').Split('/').All(part => part.Length > 0 && part is not ("." or ".."));
 
 static string GetDataRoot(IServiceProvider serviceProvider, string? configuredRoot)
 {
