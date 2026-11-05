@@ -367,6 +367,48 @@
   opacity: .4;
 }
 
+/* Keep the F1 chart series in one row on desktop instead of wrapping a
+   trailing label below the chart title. */
+.chart-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.chart-heading > div:first-child {
+  flex: 0 0 auto;
+}
+
+.chart-heading .chart-legend {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: clamp(4px, .6vw, 9px);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.chart-heading .chart-legend span,
+.chart-heading .chart-legend-toggle {
+  flex: 0 0 auto;
+  gap: 4px;
+  font-size: clamp(9px, .75vw, 11px);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .chart-heading {
+    flex-wrap: wrap;
+  }
+
+  .chart-heading .chart-legend {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+
 .telemetry-notes p {
   font-size: 12px;
 }
