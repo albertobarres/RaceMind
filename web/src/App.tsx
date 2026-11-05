@@ -340,7 +340,6 @@ function Sidebar(props: SidebarProps) {
 
       <div className="side-section-label">WORKSPACE</div>
       <button className="nav-item active"><Gauge size={17} />Performance analysis</button>
-      <button className="nav-item disabled" title="Disponible más adelante"><Activity size={17} />Driver profiles <span>SOON</span></button>
 
       <div className="side-separator" />
       <div className="side-section-label session-label">TELEMETRY SOURCES</div>
