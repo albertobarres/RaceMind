@@ -61,7 +61,15 @@ builder.Services.Configure<UserStoreOptions>(options =>
 });
 builder.Services.AddSingleton<UserStore>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto);
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // Render uses dynamic proxy addresses. Trust the single forwarding hop so
+    // rate limiting and secure-cookie behavior use the original client address
+    // and scheme rather than treating every visitor as the same proxy.
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+    options.ForwardLimit = 1;
+});
 
 builder.Services.AddSingleton<R2TelemetryBootstrapper>();
 builder.Services.AddSingleton<IF1DataProvider>(serviceProvider =>
