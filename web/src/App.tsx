@@ -420,7 +420,7 @@ function CatalogSeries(props: CatalogSeriesProps) {
   const isMotoGp = categoryKey === 'motorcycles' && series.key === 'motogp';
   const visibleMotoGpEvents = isMotoGp ? motoGpEvents.filter((event) => motoGpEventMatchesSearch(event, search)) : [];
   const hasMatchingMotoGpEvents = visibleMotoGpEvents.length > 0;
-  const autoExpandForSearch = hasSearchMatch(search, series.name) || hasMatchingMotoGpEvents;
+  const autoExpandForSearch = hasSearchMatch(search, series.name) || (search.trim().length > 0 && hasMatchingMotoGpEvents);
   const isExpanded = expanded || autoExpandForSearch;
   const visibleYears = series.years.filter((year) => yearMatchesSearch(year, search, isMotoGp ? visibleMotoGpEvents : []));
   const visibleDatasets = series.datasets.filter((dataset) => datasetMatchesSearch(dataset, search));
