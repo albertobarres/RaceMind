@@ -54,6 +54,9 @@ async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
   }
   if (!response.ok) {
     const payload = await response.json().catch(() => null) as { message?: string } | null;
+    if (response.status === 429) {
+      throw new Error(payload?.message ?? 'Se han producido varios intentos fallidos. Espera un minuto e inténtalo de nuevo.');
+    }
     throw new Error(payload?.message ?? `La API respondió ${response.status} (${response.statusText})`);
   }
   return response.json() as Promise<T>;
@@ -148,6 +151,7 @@ async function post<T>(path: string, payload: unknown, signal?: AbortSignal): Pr
   if (!response.ok) {
     const result = await response.json().catch(() => null) as { message?: string } | null;
     if (response.status === 503) throw new Error('La IA generativa no está configurada en la API. Configura endpoint, clave y modelo.');
+    if (response.status === 429) throw new Error(result?.message ?? 'Se han producido varios intentos fallidos. Espera un minuto e inténtalo de nuevo.');
     throw new Error(result?.message ?? `La API respondió ${response.status} (${response.statusText})`);
   }
   return response.json() as Promise<T>;

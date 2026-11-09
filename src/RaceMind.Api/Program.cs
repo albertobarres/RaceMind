@@ -177,13 +177,26 @@ auth.MapGet("/me", (ClaimsPrincipal principal) =>
 auth.MapPost("/login", async (LoginRequest request, HttpContext context, LoginAttemptLimiter loginLimiter, UserStore users) =>
 {
     var remoteAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-    if (!loginLimiter.TryRegisterAttempt(remoteAddress))
-        return Results.StatusCode(StatusCodes.Status429TooManyRequests);
+    var attemptKey = LoginAttemptLimiter.CreateKey(remoteAddress, request.Username);
+    if (loginLimiter.IsBlocked(attemptKey))
+    {
+        app.Logger.LogWarning("Login throttled for client {RemoteAddress}; username fingerprint {UsernameFingerprint}.",
+            remoteAddress, LoginAttemptLimiter.GetUsernameFingerprint(request.Username));
+        context.Response.Headers.RetryAfter = "60";
+        return Results.Json(new { message = "Se han producido varios intentos fallidos para esta cuenta desde esta conexión. Espera un minuto e inténtalo de nuevo." },
+            statusCode: StatusCodes.Status429TooManyRequests);
+    }
 
     var user = users.Authenticate(request.Username, request.Password);
     if (user is null)
+    {
+        if (loginLimiter.RegisterFailure(attemptKey))
+            app.Logger.LogWarning("Login failure limit reached for client {RemoteAddress}; username fingerprint {UsernameFingerprint}.",
+                remoteAddress, LoginAttemptLimiter.GetUsernameFingerprint(request.Username));
         return Results.Unauthorized();
+    }
 
+    loginLimiter.Reset(attemptKey);
     var csrfToken = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
     var identity = new ClaimsIdentity(
         [new Claim(ClaimTypes.NameIdentifier, user.Id), new Claim(ClaimTypes.Name, user.Username),
@@ -537,22 +550,69 @@ public sealed class LoginAttemptLimiter
 {
     private static readonly TimeSpan Window = TimeSpan.FromMinutes(1);
     private const int MaximumAttempts = 5;
+    private const int CleanupInterval = 128;
     private readonly ConcurrentDictionary<string, AttemptWindow> _attempts = new(StringComparer.Ordinal);
+    private int _operations;
 
-    public bool TryRegisterAttempt(string key)
+    public static string CreateKey(string? remoteAddress, string? username)
+    {
+        var normalizedAddress = string.IsNullOrWhiteSpace(remoteAddress) ? "unknown" : remoteAddress.Trim();
+        var normalizedUsername = string.IsNullOrWhiteSpace(username) ? string.Empty : username.Trim().ToUpperInvariant();
+        var material = System.Text.Encoding.UTF8.GetBytes($"{normalizedAddress}\n{normalizedUsername}");
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(material));
+    }
+
+    public static string GetUsernameFingerprint(string? username)
+    {
+        var normalizedUsername = string.IsNullOrWhiteSpace(username) ? string.Empty : username.Trim().ToUpperInvariant();
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(normalizedUsername)))[..12];
+    }
+
+    public bool IsBlocked(string key)
     {
         var now = DateTimeOffset.UtcNow;
         var attemptWindow = _attempts.GetOrAdd(key, _ => new AttemptWindow(now));
+        ResetExpiredWindow(attemptWindow, now);
+        RunPeriodicCleanup(now);
+        lock (attemptWindow) return attemptWindow.Count >= MaximumAttempts;
+    }
+
+    public bool RegisterFailure(string key)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var attemptWindow = _attempts.GetOrAdd(key, _ => new AttemptWindow(now));
+        ResetExpiredWindow(attemptWindow, now);
+        lock (attemptWindow) attemptWindow.Count++;
+        RunPeriodicCleanup(now);
+        return IsBlocked(key);
+    }
+
+    public void Reset(string key)
+    {
+        _attempts.TryRemove(key, out _);
+        RunPeriodicCleanup(DateTimeOffset.UtcNow);
+    }
+
+    private void ResetExpiredWindow(AttemptWindow attemptWindow, DateTimeOffset now)
+    {
         lock (attemptWindow)
         {
-            if (now - attemptWindow.StartedAt >= Window)
-            {
-                attemptWindow.StartedAt = now;
-                attemptWindow.Count = 0;
-            }
+            if (now - attemptWindow.StartedAt < Window) return;
+            attemptWindow.StartedAt = now;
+            attemptWindow.Count = 0;
+        }
+    }
 
-            attemptWindow.Count++;
-            return attemptWindow.Count <= MaximumAttempts;
+    private void RunPeriodicCleanup(DateTimeOffset now)
+    {
+        if (Interlocked.Increment(ref _operations) % CleanupInterval != 0) return;
+        foreach (var entry in _attempts)
+        {
+            lock (entry.Value)
+            {
+                if (now - entry.Value.StartedAt < Window) continue;
+                ((ICollection<KeyValuePair<string, AttemptWindow>>)_attempts).Remove(entry);
+            }
         }
     }
 
