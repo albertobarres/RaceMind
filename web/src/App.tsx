@@ -94,7 +94,7 @@ function LoginScreen({ onLogin }: { readonly onLogin: (user: AuthUser) => void }
     setSubmitting(true);
     try {
       setLoginStep('connecting');
-      await api.health();
+      await api.waitForHealth();
       setLoginStep('authenticating');
       onLogin(await api.login(username.trim(), password));
     } catch (loginError) {

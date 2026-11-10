@@ -47,6 +47,42 @@ async function login(username: string, password: string) {
   return user;
 }
 
+async function waitForHealth(maxWaitMilliseconds = 240_000) {
+  const deadline = Date.now() + maxWaitMilliseconds;
+  let lastStatus: number | null = null;
+  let lastError: unknown = null;
+
+  while (Date.now() < deadline) {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 90_000);
+    try {
+      const response = await fetch(`${normalizedApiBase}/health`, {
+        credentials: 'include',
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      if (response.ok) return;
+
+      lastStatus = response.status;
+      if (![408, 429, 502, 503, 504].includes(response.status)) {
+        throw new Error(`El servidor respondió ${response.status} al comprobar su estado.`);
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('El servidor respondió ')) throw error;
+      lastError = error;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+
+    await new Promise((resolve) => window.setTimeout(resolve, 3_000));
+  }
+
+  const detail = lastStatus == null
+    ? lastError instanceof Error ? ` (${lastError.message})` : ''
+    : ` (HTTP ${lastStatus})`;
+  throw new Error(`El servidor sigue despertando o no responde. Espera un momento y vuelve a intentarlo${detail}.`);
+}
+
 async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${normalizedApiBase}${path}`, { signal, credentials: 'include' });
   if (response.status === 401 && !path.startsWith('/auth/')) {
@@ -54,9 +90,6 @@ async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
   }
   if (!response.ok) {
     const payload = await response.json().catch(() => null) as { message?: string } | null;
-    if (response.status === 429) {
-      throw new Error(payload?.message ?? 'Se han producido varios intentos fallidos. Espera un minuto e inténtalo de nuevo.');
-    }
     throw new Error(payload?.message ?? `La API respondió ${response.status} (${response.statusText})`);
   }
   return response.json() as Promise<T>;
@@ -80,7 +113,7 @@ export interface RaceEngineerChatRequest {
 }
 
 export const api = {
-  health: () => request<{ status: string }>('/health'),
+  waitForHealth,
   currentUser: loadCurrentUser,
   login,
   logout: async () => {
