@@ -86,16 +86,24 @@ function LoginScreen({ onLogin }: { readonly onLogin: (user: AuthUser) => void }
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [loginStep, setLoginStep] = useState<'connecting' | 'authenticating'>('connecting');
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
     setSubmitting(true);
     try {
+      setLoginStep('connecting');
+      await api.health();
+      setLoginStep('authenticating');
       onLogin(await api.login(username.trim(), password));
     } catch (loginError) {
       const message = loginError instanceof Error ? loginError.message : '';
-      setError(message.includes('401') ? 'Usuario o contraseña incorrectos.' : message || 'No se pudo iniciar sesión. Inténtalo de nuevo.');
+      setError(message.includes('401')
+        ? 'Usuario o contraseña incorrectos.'
+        : message.includes('429')
+          ? message
+          : message || 'No se pudo conectar con el servidor. Espera un momento e inténtalo de nuevo.');
     } finally {
       setSubmitting(false);
     }
@@ -114,7 +122,7 @@ function LoginScreen({ onLogin }: { readonly onLogin: (user: AuthUser) => void }
           <label htmlFor="login-password">Contraseña</label>
           <input id="login-password" name="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} />
           {error && <div className="auth-error" role="alert">{error}</div>}
-          <button type="submit" disabled={submitting}>{submitting ? 'Validando…' : 'Iniciar sesión'}<ChevronRight size={16} /></button>
+          <button type="submit" disabled={submitting}>{submitting ? loginStep === 'connecting' ? 'Conectando con el servidor…' : 'Validando…' : 'Iniciar sesión'}<ChevronRight size={16} /></button>
         </form>
         <div className="auth-footnote"><span className="status-dot" /> Sesión protegida · RaceMind</div>
       </section>

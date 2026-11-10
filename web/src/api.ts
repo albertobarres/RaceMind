@@ -80,6 +80,7 @@ export interface RaceEngineerChatRequest {
 }
 
 export const api = {
+  health: () => request<{ status: string }>('/health'),
   currentUser: loadCurrentUser,
   login,
   logout: async () => {
