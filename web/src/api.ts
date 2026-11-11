@@ -51,6 +51,7 @@ async function waitForHealth(maxWaitMilliseconds = 240_000) {
   const deadline = Date.now() + maxWaitMilliseconds;
   let lastStatus: number | null = null;
   let lastError: unknown = null;
+  let retryDelayMilliseconds = 3_000;
 
   while (Date.now() < deadline) {
     const controller = new AbortController();
@@ -64,8 +65,21 @@ async function waitForHealth(maxWaitMilliseconds = 240_000) {
       if (response.ok) return;
 
       lastStatus = response.status;
-      if (![408, 429, 502, 503, 504].includes(response.status)) {
+      const retryAfter = response.headers.get('Retry-After');
+      // Cloudflare Pages may return an edge/origin timeout while Render is
+      // still cold-starting. Keep polling those transient gateway responses.
+      if (![408, 429, 500, 502, 503, 504, 520, 522, 523, 524, 525, 526, 530].includes(response.status)) {
         throw new Error(`El servidor respondió ${response.status} al comprobar su estado.`);
+      }
+      if (retryAfter) {
+        const retryAfterSeconds = Number(retryAfter);
+        const retryAfterDate = Date.parse(retryAfter);
+        const requestedDelay = Number.isFinite(retryAfterSeconds)
+          ? retryAfterSeconds * 1_000
+          : Number.isFinite(retryAfterDate)
+            ? retryAfterDate - Date.now()
+            : 0;
+        if (requestedDelay > 0) retryDelayMilliseconds = Math.min(requestedDelay, 30_000);
       }
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('El servidor respondió ')) throw error;
@@ -74,9 +88,13 @@ async function waitForHealth(maxWaitMilliseconds = 240_000) {
       window.clearTimeout(timeout);
     }
 
-    await new Promise((resolve) => window.setTimeout(resolve, 3_000));
+    await new Promise((resolve) => window.setTimeout(resolve, retryDelayMilliseconds));
+    retryDelayMilliseconds = Math.min(Math.round(retryDelayMilliseconds * 1.7), 20_000);
   }
 
+  if (lastStatus === 429) {
+    throw new Error('El servicio o su proxy sigue limitando las comprobaciones de disponibilidad (HTTP 429). No se enviaron las credenciales; espera un minuto y vuelve a intentarlo.');
+  }
   const detail = lastStatus == null
     ? lastError instanceof Error ? ` (${lastError.message})` : ''
     : ` (HTTP ${lastStatus})`;
