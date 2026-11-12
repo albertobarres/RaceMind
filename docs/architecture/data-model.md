@@ -1,8 +1,22 @@
-# Modelo lógico inicial de telemetría
+# Modelo de datos y normalización
 
-Esta propuesta es un punto de partida verificable, no un esquema físico cerrado. La inspección ya muestra tres granularidades (muestras, vueltas agregadas y metadata de sesión) y señales específicas de cada fuente. Se mantendrá pequeño hasta completar el perfilado.
+Este documento separa el **modelo lógico de referencia** (útil para futuras importaciones persistentes) de los **contratos implementados** que actualmente sirven las pantallas. La aplicación no crea todavía tablas ni persiste muestras en PostgreSQL: los proveedores leen los archivos originales bajo demanda y proyectan sus datos a DTOs de la capa de aplicación.
 
-## Entidades y relaciones
+## Granularidades representadas
+
+Las fuentes disponibles no son equivalentes:
+
+| Granularidad | Ejemplo | Uso actual |
+|---|---|---|
+| Muestra temporal asociada a una vuelta | JSON de F1, CSV de Assetto Corsa, CSV AiM | Gráficas y comparaciones alineadas por distancia. |
+| Registro agregado por vuelta/sector | Hojas XLSX MotoGP | Evolución de tiempos, comparación de sectores y tablas; no permite inferir señales entre sectores. |
+| Metadata de sesión/evento | Clima F1, metadata de vehículo, cabeceras de workbook | Contexto de las vistas, sin tratarlo como una señal temporal común. |
+
+No se deben crear muestras sintéticas para rellenar una fuente agregada ni asumir que dos campos con el mismo nombre comparten unidad o significado.
+
+## Modelo lógico de referencia
+
+El siguiente modelo es una propuesta para una evolución con importación/persistencia; no describe un esquema físico existente.
 
 ```mermaid
 erDiagram
@@ -11,75 +25,65 @@ erDiagram
     CIRCUIT o|--o{ SESSION : hosts
     VEHICLE o|--o{ SESSION : used_in
     DRIVER o|--o{ SESSION : drives
-    SESSION ||--|{ LAP : contains
+    SESSION ||--o{ LAP : contains
     LAP ||--o{ SECTOR : contains
     LAP ||--o{ TELEMETRY_SAMPLE : samples
     LAP ||--o{ LAP_METRIC : summarizes
     SESSION ||--o{ ENVIRONMENT_OBSERVATION : records
 ```
 
-Una sesión pertenece a una importación y puede asociarse a piloto, vehículo y circuito cuando la fuente los identifique. Una vuelta contiene cero o más muestras y sectores; la disponibilidad de cada relación depende del origen. No se exige crear entidades maestras completas para nombres externos que solo aparecen como etiquetas en una sesión.
+Una implementación futura debería preservar fuente, versión de adaptador, identificadores externos, hash y ruta lógica de origen, número de filas aceptadas/rechazadas y advertencias. No almacenar payloads completos por defecto: conservar la procedencia y un medio de reproducir la transformación.
 
-## Campos propuestos
+## Contratos que existen en la aplicación
 
-### DataSource e ImportBatch
+Los registros de `src/RaceMind.Application/TelemetryContracts.cs` definen los resultados entregados por los proveedores:
 
-- Fuente/formato y versión de adaptador.
-- Identificador externo de sesión/vuelta (por ejemplo, `dataKey` de F1).
-- Ruta/nombre lógico del archivo, hash, fecha de importación y conteos de registros aceptados/rechazados.
-- Errores y advertencias de validación.
-- Evitar guardar payloads completos por defecto; mantener trazabilidad al origen y muestras controladas para pruebas.
+- `TelemetryCatalog`, categorías, series, años, eventos y datasets para la navegación.
+- `SessionDetails`, `DriverSummary`, `LapSummary`, `WeatherSummary` y `CornerSummary` para F1.
+- `MotoGpSessionDetails`, `MotoGpRiderResult` y `MotoGpLapRecord` para tablas agregadas.
+- `AssettoSessionDetails`, `AssettoLapSummary` y `AssettoTelemetrySample` para Assetto Corsa.
+- `KartingSessionDetails`, `KartingLapSummary` y `KartingTelemetrySample` para AiM.
+- Resultados de comparación específicos por fuente; no se fuerza un DTO universal que oculte diferencias de resolución.
 
-### Session
+El dominio común F1, en `RaceMind.Domain/TelemetrySample.cs`, usa tiempo transcurrido, distancia, distancia relativa, velocidad en km/h, acelerador porcentual y freno en fracción. El servicio de aplicación genera puntos interpolados; los proveedores de Assetto y karting exponen contratos propios y algoritmos específicos.
 
-- Identificador interno; tipo (práctica, clasificación, carrera, simulación o desconocido); inicio si está disponible.
-- Referencias opcionales a circuito, vehículo y piloto; proveedor y metadata externa.
-- Metadata de contexto (p. ej., clima/condiciones) solo cuando exista y con su procedencia.
+## Convenciones y calidad
 
-### Lap y Sector
+### F1
 
-- Número/identificador externo, tiempo de vuelta y estado (válida, inválida o desconocido).
-- Compuesto, stint y combustible/setup solo cuando la fuente lo aporte.
-- Sectores con índice, tiempo y referencias disponibles. No inferir fronteras de sector desde muestras si no existen reglas fiables para la fuente.
+- La comparación F1 ordena y alinea muestras por `rel_distance`; interpola linealmente dos vueltas sobre una rejilla uniforme (201 puntos por defecto en la interfaz).
+- El delta de tiempo es comparada menos referencia; delta positivo implica que la vuelta comparada lleva más tiempo.
+- La fuente observada entrega `throttle` en 0–100 y `brake` en 0–1. La respuesta comparada expone ambos como porcentajes.
+- La velocidad se trata como km/h en la interfaz y los DTOs; la documentación de la fuente se debe consultar para certificar su unidad para cada conjunto.
+- Los tiempos o sectores ausentes permanecen nulos. Las coordenadas de curva no deben confundirse con un vértice medido con exactitud.
 
-### TelemetrySample (el punto canónico)
+### Assetto Corsa
 
-- Clave de vuelta + índice de orden estable.
-- `elapsedTime` relativo a la vuelta o sesión, conservando la referencia temporal.
-- `distance` (unidad normalizada: metros), si está disponible.
-- Canales comunes opcionales: speed (m/s interno; conversión explícita al importar), engine RPM, gear, throttle y brake normalizados a [0,1] cuando la fuente permita esa conversión.
-- Posición cartesiana opcional `positionX/Y/Z` con sistema de referencia documentado; coordenadas geográficas se modelarían aparte, solo si realmente existen.
-- Aceleración longitudinal/lateral/vertical opcional, con ejes, unidad y signo documentados.
-- Orden, tiempo y canales comunes no se asumen presentes ni sincronizados en todas las fuentes.
+- El CSV se procesa fila a fila. Las vueltas actuales se reconstruyen por cruces repetidos cerca del origen `pos_x/pos_z` (radio de 15 m), con más de 30 s entre cruces.
+- Se descartan segmentos fuera de los límites implementados de duración (20–1200 s), distancia (500–100 000 m) y mínimo de muestras. Esto es una heurística para los datos actuales, no un marcador de vuelta universal.
+- La distancia se suma desde posiciones cuando el intervalo temporal es positivo y no supera 0,2 s y el salto espacial no supera 15 m. La velocidad máxima de vuelta usa percentil 99 para limitar picos.
+- Canales que faltan reciben valores de respaldo dentro del lector; la interfaz/comprobaciones de calidad intentan no presentar valores constantes como una medida disponible. Consultar las advertencias de la sesión antes de interpretar una señal.
 
-### ChannelDefinition y SampleChannelValue
+### Karting AiM
 
-Para conservar canales de alta frecuencia/específicos sin tener que añadir columnas nullable continuamente:
+- El export incluye líneas de metadata, nombres de canales, unidades y filas de muestra. `Beacon Markers` proporciona los límites de los segmentos.
+- La longitud GPS se calcula con distancia geodésica cuando la precisión GPS y el número de satélites superan el filtro; en otros puntos se estima usando velocidad por tiempo.
+- La clasificación de comparabilidad usa la ventana de tiempos/distancias y la mediana estable definida en el proveedor. La API devuelve las advertencias y la UI restringe la comparación a vueltas clasificadas como comparables.
+- El adaptador valida tiempo, beacons, posición GPS y coherencia aproximada entre distancia y velocidad por tiempo.
 
-- Definición por nombre canónico, unidad, tipo numérico/booleano/categórico, ejes/posición (p. ej. neumático FL), descripción y regla de conversión.
-- Valor opcional por muestra, asociado a esa definición; ausencia significa dato no observado.
-- Canales potenciales: tyre temperature/pressure/wear por rueda, steering, lean angle, freno delantero/trasero, velocidades de rueda, suspensión, slip, DRS y señales IMU.
-- En la muestra F1, `throttle` está en escala 0–100 y `brake` en 0–1; las conversiones deben definirse de forma independiente por canal y adaptador.
-- El mecanismo físico (columnas especializadas, tabla de valores o almacenamiento analítico separado) queda pendiente de volumen/rendimiento y no se decide en esta fase.
+### MotoGP
 
-### TelemetryAggregate
+- El proveedor lee las hojas `Results` y `Laps` de cada XLSX. Los tiempos se conservan como cadenas del origen y se interpretan en la interfaz para calcular deltas y ritmos.
+- No hay muestras temporales continuas en estos libros; no se alinean curvas de velocidad ni puntos de frenada.
 
-Las fuentes como el CSV de ACC que ya contienen una fila de métricas por vuelta se representarán como agregados/features de vuelta, no como muestras sintéticas. Se preservan nombre/unidad/procedencia de cada métrica y el nivel de granularidad.
+## Evolución futura del esquema
 
-## Principios de normalización
+Si se incorpora persistencia, una muestra canónica podría incluir vuelta, índice de orden, tiempo relativo y distancia en metros, con canales opcionales y definiciones de canal que expresen unidad, escala, eje, rueda y regla de transformación. Los agregados de vuelta deben conservar su granularidad y procedencia por separado de las muestras.
 
-1. Normalizar unidades a convenciones explícitas al cruzar al modelo interno, conservando el valor/unidad de origen en el proceso de importación cuando sea útil para auditoría.
-2. Guardar valores desconocidos como nulos y distinguirlos de cero, `false`, “no aplicable” o “no medido”.
-3. Los adaptadores interpretan esquemas externos; el núcleo de analítica consume el modelo canónico y descripciones de canal.
-4. Permitir campos de fuente en metadata acotada para no perder identificadores, sin propagar su esquema externo a la lógica de dominio.
-5. El LLM recibirá métricas y hallazgos validados, nunca arrays crudos de telemetría.
+Reglas recomendadas:
 
-## Aspectos por validar antes del esquema físico
-
-- Si `time` F1 es relativo al inicio de vuelta y `distance` es monótono/uniforme; significado de `rel_distance` y del eje X/Y/Z.
-- Cobertura real y unidades de cada canal por fuente; definición de aceleraciones y convenciones de signos.
-- Si `lap_progress` de Assetto Corsa es suficiente para delimitar vueltas y los identificadores de Forza/Kawasaki permiten reconstruir sesiones.
-- El CSV ACC examinado solo tiene agregados y etiquetas de cluster sin procedencia documentada; no tratarlo como series temporales ni usar esas etiquetas como verdad de terreno por ahora.
-- Alineación temporal de registros ECU e IMU de la moto y tratamiento de canales dispersos.
-- Tamaño esperado, consultas principales y estrategia de persistencia de muestras/valores de canal.
-- Requisitos de comparación: misma vuelta/coche/circuito/condiciones o normalización explícita entre sesiones.
+1. Los valores desconocidos son nulos, distintos de cero, `false`, “no aplicable” y “no medido”.
+2. Los adaptadores documentan conversión, referencia temporal, sistema de coordenadas, escalas y criterios de rechazo.
+3. Se conserva la referencia al registro original y se informa de pérdidas o imputaciones.
+4. Los hallazgos generativos reciben métricas seleccionadas y limitaciones, nunca telemetría en bruto.
+5. La estrategia de almacenamiento se decide con volúmenes y consultas medidos; la tabla de canales/valores es una posibilidad, no una decisión tomada.

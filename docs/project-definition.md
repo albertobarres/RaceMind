@@ -1,41 +1,64 @@
 # Definición del proyecto
 
-## Idea
+## Resumen
 
-RaceMind es una plataforma de análisis inteligente de telemetría para motorsport. F1, simuladores, coches y motos son posibles fuentes de datos; el sistema no debe quedar acoplado a una competición ni a un proveedor.
+RaceMind es una aplicación web de análisis de telemetría y resultados de motorsport. Su objetivo es facilitar la consulta de datos de fuentes heterogéneas, comparar vueltas cuando la granularidad lo permite y presentar observaciones comprensibles, trazables y basadas en evidencias.
 
-## Problema
+## Problema y motivación
 
-La telemetría contiene señales útiles sobre el comportamiento del piloto y del vehículo, pero convertir grandes volúmenes de muestras en oportunidades de mejora requiere interpretación especializada. RaceMind busca responder dónde se gana o pierde rendimiento, qué diferencias observables coinciden con esa variación y cómo presentar los hallazgos de forma comprensible.
-
-## Objetivo general
-
-Diseñar e implementar una plataforma que importe y normalice telemetría de motorsport, calcule métricas reproducibles, compare vueltas y presente los hallazgos mediante una interfaz y explicaciones con IA generativa.
-
-## Alcance inicial propuesto
-
-El MVP se delimitará después de estudiar los datos. Como guía, debería cubrir:
-
-1. Importar al menos una fuente real mediante un adaptador.
-2. Normalizar la sesión y sus vueltas a un modelo interno.
-3. Calcular métricas deterministas y comparar vueltas.
-4. Exponer hallazgos estructurados y ofrecer explicaciones mediante IA generativa, limitadas a las evidencias disponibles.
-5. Ofrecer una interfaz funcional para consultar el análisis.
-
-El análisis de neumáticos y estrategia de carrera, el estudio de setup, el tiempo real, la compatibilidad completa con motos y múltiples proveedores quedan como posibles ampliaciones, no como compromisos del MVP.
-
-## Criterios de diseño
-
-- Adaptadores aislados por formato/fuente; lógica analítica independiente del proveedor.
-- Unidades y significado documentados; ausencia de una señal significa `null`, no cero.
-- Conservar procedencia y referencias a los registros originales para poder auditar la normalización.
-- Separar cálculos deterministas y explicación con IA generativa.
-- Empezar con un monolito modular y añadir componentes según necesidades verificadas.
+Los datos de motorsport combinan señales temporales, resúmenes por vuelta, resultados de sesión y metadatos. Su formato y significado dependen del proveedor. Una comparación útil exige conocer esa granularidad, tratar ausencias como ausencias y alinear las muestras con un criterio explícito. Además, una explicación generada automáticamente no debe convertir correlaciones o diferencias observadas en causas no verificadas.
 
 ## Pregunta de investigación
 
-¿Cómo puede una plataforma transformar telemetría de motorsport en comparaciones reproducibles y utilizar IA generativa para explicar los hallazgos de forma comprensible, trazable y limitada a la evidencia disponible?
+¿Cómo puede una plataforma transformar datos heterogéneos de motorsport en análisis reproducibles y presentar sus hallazgos de forma comprensible y trazable, utilizando IA generativa solo para explicar evidencia estructurada?
 
-## Requisitos de entrega del TFM
+## Objetivos
 
-El trabajo debe contemplar código fuente, documentación reproducible, repositorio GitHub, despliegue cuando sea viable, presentación y vídeo demostrativo. Se integrarán estos entregables durante el desarrollo y se comprobarán las pautas oficiales antes de publicar datos o elegir licencia.
+1. Ofrecer un modelo y contratos comunes suficientes para integrar distintas fuentes sin suponer que todas miden lo mismo.
+2. Leer datos mediante proveedores específicos, conservando el acceso bajo demanda y sin exigir una base de datos central.
+3. Calcular comparaciones reproducibles cuando existen registros con granularidad adecuada.
+4. Mostrar resultados, señales, limitaciones y advertencias de calidad en una interfaz web.
+5. Permitir explicaciones y preguntas en lenguaje natural a partir de hallazgos calculados, como capacidad opcional.
+
+## Alcance implementado
+
+La solución actual es una aplicación web con API ASP.NET Core en .NET 10 y dashboard React/TypeScript. Incluye:
+
+- **F1:** exploración de sesiones, pilotos, vueltas y muestras JSON de TracingInsights; comparación de dos vueltas del mismo piloto interpoladas por distancia relativa y análisis de sectores.
+- **MotoGP:** lectura de hojas de resultados y vueltas en XLSX; clasificación, ritmo por vuelta, sectores y comparación de tiempos agregados. No son muestras continuas de telemetría.
+- **Assetto Corsa:** lectura CSV fila a fila, resumen y trazada de sesión, reconstrucción heurística de vueltas y comparaciones visuales de canales.
+- **Karting AiM:** lectura de CSV con encabezados, unidades y beacons; validación GPS, segmentación por marcadores, avisos de calidad y comparación de vueltas seleccionadas como comparables.
+- **Race Engineer:** hallazgos deterministas en la interfaz y explicación/chat opcionales mediante un proveedor compatible con Chat Completions.
+- **Acceso privado:** login con cookies, cuentas gestionadas por un administrador y almacenamiento local de hashes.
+
+La disponibilidad real de cada pantalla depende de que estén presentes los ficheros y canales correspondientes. Se mantiene una navegación común, pero los análisis son específicos de cada fuente.
+
+## Fuera del alcance actual
+
+- Persistencia de sesiones y muestras en PostgreSQL o Entity Framework Core.
+- Ingesta general con seguimiento de lotes, reintentos o actualización incremental.
+- Telemetría en tiempo real, estrategia de carrera, simulación de setup o predicción de resultados.
+- Adaptador analítico para todos los datasets enumerados en el inventario; por ejemplo, Forza y los logs ECU/IMU de Kawasaki no forman parte de las vistas actuales.
+- Recuperación/cambio de contraseña desde la interfaz, registro público y un sistema de roles configurable.
+- Una licencia de software ya decidida o redistribución general de datos de terceros.
+
+## Criterios de diseño y rigor
+
+- Un adaptador por formato/fuente; la interpretación externa queda fuera de las reglas analíticas comunes.
+- Unidades y normalización explícitas; un dato ausente se conserva como `null` o se acompaña de una advertencia, nunca se interpreta automáticamente como cero.
+- Comparaciones deterministas, con convención de delta declarada y datos de origen accesibles para auditoría.
+- Separación entre cálculo y explicación generativa. El modelo no procesa telemetría cruda ni vuelve a calcular las métricas.
+- No se infiere causalidad a partir de diferencias de vuelta. Los filtros y reconstrucciones heurísticos se identifican como tales.
+- Empezar como monolito modular y añadir persistencia o servicios distribuidos solo ante necesidades medidas.
+
+## Criterios de evaluación del trabajo
+
+- Una persona puede desplegar la API y el dashboard siguiendo instrucciones reproducibles.
+- Las pruebas cubren cálculos, adaptación de formatos y reglas principales.
+- Los hallazgos visibles incluyen evidencia, unidades y limitaciones pertinentes.
+- La IA puede desactivarse sin perder el análisis determinista.
+- El inventario distingue claramente datos perfilados, integraciones efectivamente disponibles y limitaciones de calidad/licencia.
+
+## Entregables del TFM
+
+Código fuente, documentación de uso y arquitectura, repositorio, despliegue cuando sea viable, presentación y vídeo demostrativo. Las pautas oficiales del programa y los derechos de uso de cada dataset se deben comprobar al preparar la entrega pública.

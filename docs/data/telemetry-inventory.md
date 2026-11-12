@@ -1,6 +1,18 @@
 # Inventario inicial de telemetría
 
-Inspección exploratoria de la jerarquía vigente de `Telemetría/`, fuera de este repositorio. Incluye conteos y lectura de muestras, pero no certifica calibración, unidades ni condiciones de uso.
+Inspección exploratoria de la jerarquía `Telemetría/`, fuera de este repositorio. Los conteos y ejemplos reflejan las copias disponibles en el momento de cada perfilado: no se recalculan automáticamente y no certifican calibración, unidades ni condiciones de uso. La implementación actual lee un subconjunto de las fuentes descritas aquí.
+
+## Estado de integración en RaceMind
+
+| Fuente | Integración actual | Qué permite y qué no |
+|---|---|---|
+| F1 / TracingInsights | Implementada para JSON en `Coches/F1/{año}/{evento}/{sesión}`. La navegación detecta `session_laptimes.json`; la API carga metadatos y telemetría por vuelta bajo demanda. | Comparación de vueltas de un mismo piloto. Mantener advertencias sobre escalas/unidades y calidad de cada evento. |
+| MotoGP | Implementada para XLSX en `Motos/MotoGP/{año}`. | Resultados y tiempos/sectores agregados; no contiene telemetría continua en la fuente disponible. |
+| Assetto Corsa | Implementada para `telemetry.csv` y metadata por sesión bajo `Simuladores/Assetto Corsa`. | Trazada y reconstrucción heurística de vueltas; consultar advertencias, pues depende de posiciones y filtros. |
+| Karting AiM | Implementada para CSV exportados bajo `Karting`. | Segmentos delimitados por `Beacon Markers`, validación GPS y comparación filtrada. |
+| ACC agregado, Forza y Kawasaki ECU/IMU | Perfilados en esta documentación, sin una pantalla analítica de producto para esos conjuntos. | Requieren aclarar formatos, unidades, sincronización y/o procedencia antes de integrar. |
+
+Los adaptadores y rutas actuales se detallan en [`API, interfaz y operación`](../api-and-frontend.md).
 
 ```text
 Telemetría/
@@ -14,7 +26,7 @@ Telemetría/
 | Fuente | Archivos/tamaño aproximado observado | Formato y granularidad | Señales/metadata observadas | Lectura inicial |
 |---|---:|---|---|---|
 | F1 / ALO | 40 JSON, ~5 MB | Un `*_tel.json` por vuelta; arrays paralelos bajo `tel` | `time`, `rpm`, `speed`, `gear`, `throttle`, `brake`, `drs`, `distance`, `rel_distance`, `acc_x/y/z`, `x/y/z`, `dataKey`; además `laptimes.json` con tiempos, sectores, compuesto y stint | Candidato recomendado para el primer vertical analítico. `laptimes.json` contiene 39 vueltas; hay 40 archivos y uno presenta solo 3 muestras, por lo que hay que ponerlo en cuarentena y conciliar claves. Las coordenadas X/Y/Z no son GPS confirmado. |
-| Assetto Corsa | 1 CSV, ~133 MB; 91.527 filas de datos | Muestras de alta frecuencia | `timestamp`, `wall_time`, `lap_progress`, `completed_laps`, velocidad, RPM, controles, aceleraciones, pose, suspensión, carga, slip y canales de neumáticos | Exportación problemática: valores numéricos en bruto como `865.722.453` y `12.824.029.922.485.300` no se pueden interpretar con seguridad como decimales. En las filas inspeccionadas `completed_laps` y `lap_progress` siguen en cero. No usar hasta recuperar una exportación interpretable y validar segmentación de vueltas. |
+| Assetto Corsa (muestra perfilada inicialmente) | 1 CSV, ~133 MB; 91.527 filas de datos | Muestras de alta frecuencia | `timestamp`, `wall_time`, `lap_progress`, `completed_laps`, velocidad, RPM, controles, aceleraciones, pose, suspensión, carga, slip y canales de neumáticos | Esa exportación concreta es problemática: valores numéricos en bruto como `865.722.453` y `12.824.029.922.485.300` no se pueden interpretar con seguridad como decimales. En las filas inspeccionadas `completed_laps` y `lap_progress` siguen en cero. La integración actual lee datasets CSV disponibles bajo el árbol de sesiones; no se debe asumir que esta exportación perfilada es la misma que las sesiones limpias que alimentan la demo. |
 | Assetto Corsa Competizione | 1 CSV, ~0,32 MB; 476 filas | Agregados por vuelta; 8 valores distintos de `Lap` | Circuito, coche, fecha, identificador de piloto, tiempo de vuelta, estadísticas de velocidad/freno/G/dirección, validez/outlier y categorías Fast/Medium/Slow | Sirve para explorar datos agregados, no para reconstruir telemetría temporal. No hay ID inequívoco de sesión ni documentación del origen de las categorías. Algunas variables numéricas están exportadas en formato ambiguo. |
 | Forza Motorsport | 1 CSV, ~63 MB; 94.519 filas de datos | Muestras temporales con 86 columnas | RPM, ruedas, slip, temperatura, suspensión, pose, aceleración/velocidad, controles, marcha, distancia, tiempos de vuelta y posición de carrera | También hay valores con puntos repetidos dentro de números (`21.785.471`, etc.). `current_lap_time` parece decimal, pero el formato de otras columnas no es seguro. Confirmar exportador/cultura antes de convertir; no aplicar heurísticas de separador decimal. |
 | Kawasaki Ninja 400 SSP300 | 85 TXT, ~64 MB; 958.854 líneas | JSON Lines de eventos parciales y dispersos, con streams ECU/IMU | `ts`, señales ECU, acelerador, frenos, velocidad, inclinación, suspensión, combustible; eventos IMU con `t`, `seq`, `ax/ay/az`, `gx/gy/gz` | Buen caso posterior para validar extensibilidad a moto, pero no es todavía una fuente de vueltas lista para el MVP. Los registros actualizan subconjuntos de canales, existen dos relojes y se observan retrocesos de `ts`; faltan segmentación de sesión/vuelta y calibración de sensores. |
@@ -61,15 +73,15 @@ Telemetría/
 
 ## Enfoque inicial de análisis
 
-**Fuente inicial:** F1 / ALO por ser acotada, tener telemetría de vuelta de tamaño moderado y una tabla compañera con tiempos/sectores/compuesto/stint. Primero se debe excluir el fichero de tres muestras y conciliar los 40 archivos con las 39 vueltas del resumen.
+**Selección exploratoria inicial (histórica):** F1 / ALO se escogió para estudiar una primera comparación por tener telemetría de vuelta acotada y una tabla compañera con tiempos/sectores/compuesto/stint. El fichero de tres muestras y la diferencia entre archivos de telemetría y entradas de resumen son problemas de esa muestra; no son una descripción universal de los eventos F1 posteriores.
 
 **Primer vertical determinista:** comparar dos vueltas de la misma sesión, interpolando ambas a posiciones equivalentes de distancia (o distancia relativa) y calcular delta temporal acumulado, velocidades y diferencias de uso de acelerador/freno; resumir por sectores cuando las fronteras estén identificadas. El resultado debe ser reproducible y acompañarse de calidad/unidades de entrada.
 
-La primera fuente es F1 / ALO por ser acotada, tener telemetría de vuelta de tamaño moderado y una tabla compañera con tiempos, sectores, compuesto y stint. ACC y moto quedan como fuentes para estudiar en futuras ampliaciones cuando se conozcan mejor sus formatos y metadatos.
+Este enfoque fundamentó el primer prototipo determinista. La aplicación evolucionó después a una demo multisource: F1 con la sesión Barcelona 2026, MotoGP XLSX, Assetto Corsa y karting AiM cuentan ahora con proveedores/pantallas específicos. ACC agregado, Forza y logs Kawasaki siguen como material de perfilado, no como fuentes analíticas integradas.
 
 ## Nuevas muestras F1 y sesión demo
 
-La carpeta se amplió después con archivos descargados desde [TracingInsights Data Archives](https://tracinginsights.com/data/). Según esa página, los datos se organizan por temporada y se recopilan de fuentes como Ergast y feeds de F1 a través de FastF1. TracingInsights declara que se pueden usar para investigación, análisis académico y proyectos personales; recomienda atribución si se publica el trabajo. Esta descripción no debe transformarse en una afirmación de que RaceMind está afiliado a F1/FIA/equipos ni de que se trata de una fuente oficial única.
+La carpeta se amplió después con archivos descargados desde [TracingInsights Data Archives](https://tracinginsights.com/data/). Según esa página, los datos se organizan por temporada y se recopilan de fuentes como Ergast y feeds de F1 a través de FastF1. TracingInsights declara que se pueden usar para investigación, análisis académico y proyectos personales; recomienda atribución si se publica el trabajo. Esta descripción no debe transformarse en una afirmación de que RaceMind está afiliado a F1/FIA/equipos ni de que se trata de una fuente oficial única. La copia local cambió con el tiempo, por lo que los números de este apartado son observaciones históricas, no una garantía del contenido actual.
 
 - Inventario local: 18 carpetas de Grandes Premios/pruebas, 56.647 archivos JSON y aproximadamente 10,4 GB. Las carpetas `Pre-Season Testing` y `Pre-Season Testing 1` tienen prácticamente el mismo conteo/tamaño, por lo que hay posible duplicación que conviene verificar. No se deben escanear los payloads enteros al iniciar la API ni versionar el dataset completo en Git.
 - El número anterior corresponde al inventario anterior a dividir el directorio por tipo de vehículo; el inventario actual se describe por la jerarquía y muestras de la tabla superior. No reutilizar esos conteos como si ya se hubieran recalculado para la nueva estructura.
