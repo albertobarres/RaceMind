@@ -62,7 +62,8 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
-    api.currentUser()
+    api.waitForHealth()
+      .then(() => api.currentUser())
       .then((authenticatedUser) => { if (active) setUser(authenticatedUser); })
       .catch(() => { if (active) setUser(null); })
       .finally(() => { if (active) setCheckingSession(false); });
@@ -74,7 +75,7 @@ export default function App() {
     };
   }, []);
 
-  if (checkingSession) return <div className="auth-loading"><span className="spinner large" /><span>Comprobando sesión...</span></div>;
+  if (checkingSession) return <div className="auth-loading"><span className="spinner large" /><span>Conectando con el servidor y comprobando la sesión…</span></div>;
   if (!user) return <LoginScreen onLogin={(authenticatedUser) => { setShowAdmin(false); setUser(authenticatedUser); }} />;
   const logout = () => { setShowAdmin(false); setUser(null); };
   if (user.role === 'Admin' && showAdmin) return <AdminApp user={user} onLogout={logout} onBack={() => setShowAdmin(false)} />;
