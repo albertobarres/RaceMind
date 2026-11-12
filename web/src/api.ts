@@ -16,6 +16,7 @@ import type {
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? '/api';
 const normalizedApiBase = apiBase.replace(/\/$/, '');
+const renderApiOrigin = (import.meta.env.VITE_RENDER_API_URL ?? 'https://racemind-s3gu.onrender.com').replace(/\/$/, '');
 
 export interface AuthUser {
   username: string;
@@ -54,13 +55,33 @@ async function waitForHealth(maxWaitMilliseconds = 240_000) {
   let retryDelayMilliseconds = 3_000;
 
   while (Date.now() < deadline) {
+    // Wake Render directly from the browser. The no-cors request is an
+    // anonymous GET to the public health endpoint, so it needs no credentials
+    // or CORS response headers. Pages Functions can otherwise time out before
+    // a sleeping Render free instance finishes its cold start.
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 90_000);
+    const wakeTimeout = window.setTimeout(() => controller.abort(), 90_000);
+    try {
+      await fetch(`${renderApiOrigin}/api/health`, {
+        method: 'GET',
+        mode: 'no-cors',
+        credentials: 'omit',
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+    } catch (error) {
+      lastError = error;
+    } finally {
+      window.clearTimeout(wakeTimeout);
+    }
+
+    const healthController = new AbortController();
+    const healthTimeout = window.setTimeout(() => healthController.abort(), 15_000);
     try {
       const response = await fetch(`${normalizedApiBase}/health`, {
         credentials: 'include',
         cache: 'no-store',
-        signal: controller.signal,
+        signal: healthController.signal,
       });
       if (response.ok) return;
 
@@ -85,7 +106,7 @@ async function waitForHealth(maxWaitMilliseconds = 240_000) {
       if (error instanceof Error && error.message.startsWith('El servidor respondió ')) throw error;
       lastError = error;
     } finally {
-      window.clearTimeout(timeout);
+      window.clearTimeout(healthTimeout);
     }
 
     await new Promise((resolve) => window.setTimeout(resolve, retryDelayMilliseconds));
