@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from './api';
 import type { AssettoLapComparison, AssettoSessionDetails, CornerSummary, KartingLapComparison, KartingSessionDetails, LapComparison, LapSummary, MotoGpEventSummary, MotoGpLapRecord, MotoGpSessionDetails, SessionDetails, SessionSummary, TelemetryCatalog } from './types';
 
@@ -47,6 +47,7 @@ const errorMessage = (cause: unknown, fallback: string) =>
   cause instanceof Error ? cause.message : fallback;
 
 export function useRaceMindDashboard(): DashboardState {
+  const activeSelectionRequest = useRef<AbortController | null>(null);
   const [catalog, setCatalog] = useState<TelemetryCatalog | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
@@ -188,6 +189,8 @@ export function useRaceMindDashboard(): DashboardState {
     if (!catalog) return;
     const selected = getF1Sessions(catalog).find((item) => item.id === value && item.year === year);
     if (!selected) return;
+    activeSelectionRequest.current?.abort();
+    activeSelectionRequest.current = null;
     setSelectedSessionId(value);
     setSelectedYear(year);
     setSelectedF1Session(selected);
@@ -195,6 +198,7 @@ export function useRaceMindDashboard(): DashboardState {
     setSelectedAssettoSessionId(null);
     setAssettoSession(null);
     setAssettoComparison(null);
+    setSelectedKartingSessionId(null);
     setKartingSession(null);
     setKartingComparison(null);
     setMotoGpLapRecords([]);
@@ -208,18 +212,24 @@ export function useRaceMindDashboard(): DashboardState {
   };
 
   const chooseMotoGpSession = (year: number, eventCode: string, sessionCode: string) => {
+    activeSelectionRequest.current?.abort();
     const controller = new AbortController();
+    activeSelectionRequest.current = controller;
     setSelectedSessionId(`motogp/${year}/${eventCode}/${sessionCode}`);
     setSelectedYear(year);
     setSelectedF1Session(null);
     setSelectedAssettoSessionId(null);
     setAssettoSession(null);
     setAssettoComparison(null);
+    setSelectedKartingSessionId(null);
     setKartingSession(null);
     setKartingComparison(null);
     setSelectedMotoGpSession(null);
     setMotoGpLapRecords([]);
     setDriver(null);
+    setSession(null);
+    setLaps([]);
+    setCorners([]);
     setComparison(null);
     setLoading(true);
     setError(null);
@@ -229,6 +239,7 @@ export function useRaceMindDashboard(): DashboardState {
       api.motoGpLapRecords(year, eventCode, sessionCode, undefined, controller.signal),
     ])
       .then(([details, records]) => {
+        if (controller.signal.aborted) return;
         setSelectedMotoGpSession(details);
         setMotoGpLapRecords(records);
         setLoading(false);
@@ -236,10 +247,15 @@ export function useRaceMindDashboard(): DashboardState {
       .catch((cause: unknown) => {
         setFailure(cause, controller.signal, setError, 'No se pudieron cargar los datos de MotoGP.');
         if (!controller.signal.aborted) setLoading(false);
+      })
+      .finally(() => {
+        if (activeSelectionRequest.current === controller) activeSelectionRequest.current = null;
       });
   };
 
   const chooseAssettoSession = (sessionId: string) => {
+    activeSelectionRequest.current?.abort();
+    activeSelectionRequest.current = null;
     setSelectedSessionId(`assetto/${sessionId}`);
     setSelectedYear(null);
     setSelectedF1Session(null);
@@ -274,6 +290,8 @@ export function useRaceMindDashboard(): DashboardState {
   };
 
   const chooseKartingSession = (sessionId: string) => {
+    activeSelectionRequest.current?.abort();
+    activeSelectionRequest.current = null;
     setSelectedSessionId(`karting/${sessionId}`);
     setSelectedYear(null);
     setSelectedF1Session(null);
@@ -306,6 +324,8 @@ export function useRaceMindDashboard(): DashboardState {
   };
 
   const resetDashboard = () => {
+    activeSelectionRequest.current?.abort();
+    activeSelectionRequest.current = null;
     setSelectedSessionId('');
     setSelectedYear(null);
     setSelectedF1Session(null);
