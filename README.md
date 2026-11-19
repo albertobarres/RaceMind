@@ -40,6 +40,30 @@ scripts/                    Herramientas de empaquetado para la demo multisource
 data/samples/               Instrucciones para muestras pequeñas; no contiene datasets
 ```
 
+## Stack tecnológico
+
+- **Backend:** C#, .NET 10 y ASP.NET Core Minimal APIs.
+- **Arquitectura backend:** solución .NET organizada en API, Application, Domain e Infrastructure, con proveedores/adaptadores específicos por fuente.
+- **Frontend:** React 19, TypeScript y Vite; visualizaciones SVG propias.
+- **Formatos de datos:** JSON (F1), XLSX (MotoGP) y CSV (Assetto Corsa y karting AiM).
+- **Autenticación:** cookies ASP.NET Core `HttpOnly`, hash de contraseñas ASP.NET Core Identity y almacenamiento de cuentas en JSON.
+- **Pruebas:** xUnit y `dotnet test`.
+- **Despliegue:** Docker para la API; frontend compatible con Cloudflare Pages y una función proxy a la API.
+- **IA generativa:** integración opcional con proveedores compatibles con Chat Completions.
+
+No se ha incorporado una base de datos relacional: los datos de telemetría se leen desde ficheros.
+
+## Funcionalidades principales
+
+- Explorar sesiones de cuatro fuentes: F1, MotoGP, Assetto Corsa y karting AiM.
+- Comparar vueltas F1 mediante muestras alineadas por distancia relativa y consultar deltas de tiempo, sectores y canales.
+- Consultar clasificación, tiempos, ritmo y sectores agregados de sesiones MotoGP.
+- Analizar trazadas y comparar sesiones Assetto Corsa y karting con avisos y filtros de calidad específicos.
+- Ver hallazgos deterministas y, si está configurado un proveedor, pedir una explicación o conversar con Race Engineer.
+- Acceso privado con cuentas administradas por un usuario administrador.
+
+La comparación de datos agregados MotoGP no equivale a una comparación de telemetría continua. Las diferencias que muestra el proyecto son observaciones y no demuestran causalidad.
+
 ## Requisitos
 
 - .NET 10 SDK.
@@ -87,6 +111,20 @@ cd web
 npm ci
 npm run build
 ```
+
+## Acceso de prueba y entregables del TFM
+
+El proyecto utiliza inicio de sesión; el administrador de la instalación crea las cuentas de prueba. **No se publican credenciales en el repositorio.** Antes de enviar el TFM, facilita al evaluador las credenciales de una cuenta de prueba por el canal privado que indique el curso y verifica que esté activa en el despliegue. Si compartes el repositorio con credenciales, cámbialas y no reutilices una contraseña personal.
+
+| Recurso solicitado | Ubicación / estado |
+|---|---|
+| Código fuente | Este repositorio GitHub: [añadir URL pública del repositorio al preparar la entrega]. |
+| Aplicación desplegada | [añadir URL pública y verificar que el servicio está operativo]. |
+| Slides de presentación | Archivo adjunto [`docs/presentation/RaceMind-TFM.pptx`](docs/presentation/RaceMind-TFM.pptx). Para la entrega final, subirlo también a Slides/PowerPoint online o confirmar con el evaluador que acepta el adjunto. |
+| Vídeo explicativo con captura de pantalla | Pendiente de grabación y publicación. Añadir aquí la URL pública cuando esté listo. |
+| Usuario y contraseña de prueba | Pendientes de facilitar de forma privada; no incluir la contraseña en GitHub. |
+
+La presentación adjunta es una base editable de 12 diapositivas. Sustituye `[Nombre del alumno]`, verifica los ejemplos frente a la versión que se vaya a presentar y completa las URL reales antes de enviar el formulario de entrega. El vídeo debe mostrar la pantalla durante la explicación, tal como exige la guía del TFM. Para regenerar el `.pptx` en Windows con PowerPoint instalado, ejecuta `./scripts/Generate-RaceMindPresentation.ps1`; acepta `-OutputPath` para cambiar la ubicación de salida.
 
 ## Configuración opcional
 
